@@ -133,3 +133,25 @@ export const defaultFilters = (): CustomFilters => ({
   startDate: null,
   topN: 8,
 });
+
+// AI 가 즉석에서 검색해서 돌려주는 장소 (DB 에 없음)
+export type AIPlace = {
+  nameKo: string;
+  nameZh: string;
+  city: string;
+  category: string;
+  travelMinutesFromWuxi?: number;
+  why: string;
+  estimatedCost?: string;
+  suggestedHours?: [number, number];
+  navigationKeyword?: string;
+  sourceUrl?: string;
+  tips?: string;
+};
+
+export type AIRecommendResponse = {
+  places: AIPlace[];
+  notes?: string | null;
+  rawPreview?: string;
+  error?: string;
+};

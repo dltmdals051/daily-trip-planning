@@ -1,17 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, TextInput } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { useLang, t, type DictKey } from '@/lib/i18n';
 import { theme, shadow } from '@/lib/theme';
-import { PlaceCard } from '@/components/cards/PlaceCard';
-import { WeatherCard } from '@/components/cards/WeatherCard';
-import { customRecommend } from '@/lib/recommend';
-import { fetchClientWeather } from '@/lib/clientWeather';
+import { AIPlaceCard } from '@/components/cards/AIPlaceCard';
+import { supabase } from '@/lib/supabase';
 import { defaultFilters } from '@/lib/types';
-import type { CustomFilters, Category, WeatherDay, Recommendation } from '@/lib/types';
-import { actorLabels } from '@/lib/people';
+import type { CustomFilters, Category, AIPlace, AIRecommendResponse } from '@/lib/types';
 
 const CATEGORIES: { value: Category; key: DictKey }[] = [
   { value: 'nature', key: 'catNature' },
@@ -34,25 +31,25 @@ const COSTS: { value: 'free' | 'cheap' | 'medium' | 'expensive'; key: DictKey }[
   { value: 'expensive', key: 'costExpensive' },
 ];
 
-const TRAVEL_OPTIONS = [30, 60, 90, 120];
+const CITY_OPTIONS = ['无锡', '苏州', '南京', '常州', '扬州', '镇江', '上海', '杭州'];
+const TRAVEL_OPTIONS = [30, 60, 90, 120, 180];
 const DATE_SCORE_OPTIONS = [0, 5, 7, 8, 9];
 
 export default function CustomScreen() {
   const lang = useLang(s => s.lang);
-  const router = useRouter();
-  const { places, visits, wishlist, weekly, profiles, me, refresh, toggleWish, addVisit } = useStore();
+  const { discoveries, addDiscovery } = useStore();
 
   const [filters, setFilters] = useState<CustomFilters>(defaultFilters());
-  const [results, setResults] = useState<Recommendation[] | null>(null);
-  const [adhocWeather, setAdhocWeather] = useState<WeatherDay[]>([]);
+  const [results, setResults] = useState<AIPlace[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notes, setNotes] = useState<string | null>(null);
+  const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const cities = useMemo(() => Array.from(new Set(places.map(p => p.city))), [places]);
-  const placesById = useMemo(() => Object.fromEntries(places.map(p => [p.id, p])), [places]);
+  const savedTitles = useMemo(
+    () => new Set(discoveries.map(d => d.title.trim().toLowerCase())),
+    [discoveries],
+  );
 
   function update<K extends keyof CustomFilters>(k: K, v: CustomFilters[K]) {
     setFilters(prev => ({ ...prev, [k]: v }));
@@ -63,38 +60,45 @@ export default function CustomScreen() {
 
   async function generate() {
     setBusy(true);
-    const now = new Date();
-
-    let weather: WeatherDay[] = [];
-    if (filters.startDate) {
-      const start = new Date(filters.startDate);
-      if (!isNaN(start.getTime())) {
-        const end = new Date(start);
-        end.setDate(start.getDate() + 1);
-        weather = await fetchClientWeather(start, end);
-      }
-    } else if (weekly) {
-      weather = weekly.weather;
+    setError(null);
+    setNotes(null);
+    setSavedKeys(new Set());
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke<AIRecommendResponse>('ai-recommend', {
+        body: filters,
+      });
+      if (fnErr) throw fnErr;
+      if (!data) throw new Error('빈 응답');
+      if (data.error) throw new Error(data.error);
+      setResults(data.places);
+      setNotes(data.notes ?? null);
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+      setResults([]);
+    } finally {
+      setBusy(false);
     }
-
-    const events = weekly?.events ?? [];
-    const recs = customRecommend(
-      places,
-      filters,
-      visits.map(v => ({ place_id: v.place_id, visited_on: v.visited_on })),
-      weather,
-      events,
-      filters.startDate ? new Date(filters.startDate) : now,
-    );
-    setResults(recs);
-    setAdhocWeather(weather);
-    setBusy(false);
   }
 
   function reset() {
     setFilters(defaultFilters());
     setResults(null);
-    setAdhocWeather([]);
+    setError(null);
+    setNotes(null);
+    setSavedKeys(new Set());
+  }
+
+  async function saveToDiscovery(p: AIPlace) {
+    const key = `${p.nameKo}|${p.nameZh}`;
+    await addDiscovery({
+      title: `${p.nameKo} (${p.nameZh})`,
+      url: p.sourceUrl,
+      city: p.city,
+      category: p.category,
+      memo: p.why + (p.tips ? `\n💡 ${p.tips}` : ''),
+      source: 'AI',
+    });
+    setSavedKeys(prev => new Set(prev).add(key));
   }
 
   return (
@@ -109,6 +113,15 @@ export default function CustomScreen() {
         }}
       />
       <ScrollView contentContainerStyle={s.content}>
+        <View style={s.aiBanner}>
+          <Text style={s.aiBannerTitle}>🤖 {lang === 'ko' ? 'AI 실시간 검색' : 'AI 实时搜索'}</Text>
+          <Text style={s.aiBannerSub}>
+            {lang === 'ko'
+              ? 'Gemini가 구글 검색으로 매번 새로 찾아옴. 큐레이션 목록 기반 아님.'
+              : 'Gemini 通过谷歌搜索实时查找,不基于固定列表'}
+          </Text>
+        </View>
+
         {/* 시작 날짜 */}
         <Field label={t('filterStartDate', lang)}>
           <TextInput
@@ -124,7 +137,7 @@ export default function CustomScreen() {
         {/* 도시 */}
         <Field label={t('filterCities', lang)}>
           <ChipRow
-            items={cities.map(c => ({ value: c, label: c }))}
+            items={CITY_OPTIONS.map(c => ({ value: c, label: c }))}
             selected={filters.cities}
             onToggle={v => update('cities', toggleArr(filters.cities, v))}
           />
@@ -199,56 +212,68 @@ export default function CustomScreen() {
         {/* 버튼 */}
         <View style={s.btnRow}>
           <TouchableOpacity style={[s.btn, s.btnPrimary]} onPress={generate} disabled={busy}>
-            <Text style={[s.btnText, { color: '#fff' }]}>{busy ? '...' : t('generateBtn', lang)}</Text>
+            {busy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={[s.btnText, { color: '#fff' }]}>
+                ✨ {lang === 'ko' ? 'AI에게 추천 받기' : '让 AI 推荐'}
+              </Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={[s.btn, s.btnSecondary]} onPress={reset}>
             <Text style={[s.btnText, { color: theme.textDim }]}>{t('resetBtn', lang)}</Text>
           </TouchableOpacity>
         </View>
 
+        {busy && (
+          <View style={s.loadingBox}>
+            <Text style={s.loadingText}>
+              {lang === 'ko' ? 'Gemini가 검색 중... 보통 5~15초' : 'Gemini 正在搜索... 通常 5~15 秒'}
+            </Text>
+          </View>
+        )}
+
+        {error && (
+          <View style={s.errBox}>
+            <Text style={s.errText}>⚠️ {error}</Text>
+          </View>
+        )}
+
         {/* 결과 */}
-        {results !== null && (
-          <View style={{ marginTop: 24 }}>
-            <View style={s.filterSummary}>
-              <Text style={s.filterSummaryText}>
-                📋 {summarizeFilters(filters, lang)}
-              </Text>
-            </View>
+        {results !== null && !busy && (
+          <View style={{ marginTop: 16 }}>
             <Text style={s.h2}>
               {t('resultsTitle', lang)} ({results.length})
             </Text>
 
-            {adhocWeather.length > 0 && (
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-                {adhocWeather.map(w => (
-                  <WeatherCard key={w.date} w={w} />
-                ))}
+            {notes && (
+              <View style={s.notesBox}>
+                <Text style={s.notesText}>📝 {notes}</Text>
               </View>
             )}
 
             {results.length === 0 ? (
               <View style={s.empty}>
-                <Text style={s.emptyText}>{t('noMatches', lang)}</Text>
+                <Text style={s.emptyText}>
+                  {error
+                    ? (lang === 'ko' ? '에러로 결과 없음' : '出错,无结果')
+                    : t('noMatches', lang)}
+                </Text>
               </View>
             ) : (
               <View style={{ gap: 12 }}>
-                {results.map((r, i) => {
-                  const place = placesById[r.place_id];
-                  if (!place) return null;
-                  const placeWish = wishlist.filter(w => w.place_id === place.id);
+                {results.map((p, i) => {
+                  const key = `${p.nameKo}|${p.nameZh}`;
+                  const alreadySaved =
+                    savedKeys.has(key) ||
+                    savedTitles.has(`${p.nameKo} (${p.nameZh})`.toLowerCase());
                   return (
-                    <PlaceCard
-                      key={place.id}
-                      place={place}
+                    <AIPlaceCard
+                      key={key}
+                      place={p}
                       rank={i + 1}
-                      score={r.score}
-                      reasons={r.reasons}
-                      wishCount={placeWish.length}
-                      bothWish={placeWish.length >= 2}
-                      iWish={!!me && placeWish.some(w => w.user_id === me)}
-                      onWish={() => toggleWish(place.id)}
-                      onMarkVisited={() => addVisit(place.id, null, '')}
-                      wishActors={placeWish.length > 0 ? actorLabels(placeWish.map(w => w.user_id), profiles, me) : undefined}
+                      onSave={() => saveToDiscovery(p)}
+                      saved={alreadySaved}
                     />
                   );
                 })}
@@ -259,32 +284,6 @@ export default function CustomScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function summarizeFilters(f: CustomFilters, lang: 'ko' | 'zh'): string {
-  const parts: string[] = [];
-  if (f.cities.length > 0) parts.push(f.cities.join('·'));
-  if (f.categories.length > 0) {
-    const map: Record<string, { ko: string; zh: string }> = {
-      'nature': { ko: '자연', zh: '自然' },
-      'culture': { ko: '문화', zh: '文化' },
-      'food': { ko: '먹거리', zh: '美食' },
-      'shopping': { ko: '쇼핑', zh: '购物' },
-      'date': { ko: '데이트', zh: '约会' },
-      'ancient-town': { ko: '고진', zh: '古镇' },
-      'museum': { ko: '박물관', zh: '博物馆' },
-      'park': { ko: '공원', zh: '公园' },
-      'temple': { ko: '사찰', zh: '寺庙' },
-      'theme-park': { ko: '테마파크', zh: '主题公园' },
-      'water-town': { ko: '수향', zh: '水乡' },
-    };
-    parts.push(f.categories.map(c => map[c]?.[lang] ?? c).join('·'));
-  }
-  if (f.costs.length > 0) parts.push(f.costs.join('·'));
-  if (f.maxTravelMinutes !== null) parts.push(`${lang === 'ko' ? '편도' : '单程'} ${f.maxTravelMinutes}${lang === 'ko' ? '분 이내' : '分钟以内'}`);
-  if (f.weather !== 'any') parts.push(f.weather === 'indoor' ? (lang === 'ko' ? '실내' : '室内') : (lang === 'ko' ? '야외' : '户外'));
-  if (f.minDateScore > 0) parts.push(`${lang === 'ko' ? '데이트' : '约会'} ${f.minDateScore}+`);
-  return parts.length > 0 ? parts.join(' · ') : (lang === 'ko' ? '필터 없음' : '无筛选');
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -327,6 +326,14 @@ function ChipRow<T extends string | number>({
 
 const s = StyleSheet.create({
   content: { padding: 16, paddingBottom: 80 },
+  aiBanner: {
+    backgroundColor: theme.lavender,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 18,
+  },
+  aiBannerTitle: { fontSize: 14, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  aiBannerSub: { fontSize: 12, color: '#fff', opacity: 0.9, lineHeight: 17 },
   field: { marginBottom: 18 },
   fieldLabel: {
     fontSize: 12,
@@ -381,12 +388,38 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 18,
+    minHeight: 48,
   },
   btnPrimary: { flex: 1, backgroundColor: theme.accentDeep, ...shadow.glow },
   btnSecondary: { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border },
   btnText: { fontSize: 14, fontWeight: '700', color: theme.text },
+  loadingBox: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: theme.cardSoft,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  loadingText: { fontSize: 13, color: theme.textDim },
+  errBox: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#fff0f0',
+    borderColor: theme.bad,
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+  errText: { fontSize: 13, color: theme.badInk },
   h2: { fontSize: 13, fontWeight: '700', color: theme.accentDeep, marginBottom: 12, letterSpacing: 0.4 },
+  notesBox: {
+    backgroundColor: theme.cardSoft,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  notesText: { fontSize: 11, color: theme.textDim, lineHeight: 16 },
   empty: {
     backgroundColor: theme.card,
     borderWidth: 1,
@@ -396,17 +429,4 @@ const s = StyleSheet.create({
     padding: 16,
   },
   emptyText: { color: theme.textDim, fontSize: 13, textAlign: 'center' },
-  filterSummary: {
-    backgroundColor: theme.cardSoft,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-  },
-  filterSummaryText: {
-    fontSize: 11,
-    color: theme.textDim,
-    lineHeight: 17,
-  },
 });
