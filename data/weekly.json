@@ -1,0 +1,8 @@
+{
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "weekendDates": { "saturday": "1970-01-03", "sunday": "1970-01-04" },
+  "weather": [],
+  "events": [],
+  "recommendations": [],
+  "modelNotes": "최초 빌드 전 placeholder. GitHub Actions가 매주 갱신함."
+}

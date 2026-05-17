@@ -1,0 +1,44 @@
+name: Weekly Update
+
+on:
+  schedule:
+    # 매주 금요일 18:00 UTC = 토요일 03:00 KST = 토요일 02:00 CST
+    - cron: '0 18 * * 5'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Generate weekly data
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run generate
+
+      - name: Commit if changed
+        run: |
+          git config user.name "weekend-planner-bot"
+          git config user.email "bot@users.noreply.github.com"
+          if [ -n "$(git status --porcelain data/weekly.json)" ]; then
+            git add data/weekly.json
+            git commit -m "data: refresh weekly $(date -u +%Y-%m-%d)"
+            for i in 1 2 3 4; do
+              git push && break || sleep $((2**i))
+            done
+          else
+            echo "no changes"
+          fi
