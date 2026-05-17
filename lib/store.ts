@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from './supabase';
 import type { Place, WeeklySnapshot, Visit, WishlistRow, VoteRow, Discovery, Profile } from './types';
-import { fetchWeekendData, isFresh, type WeekendData } from './weekendData';
+import { fetchWeekendData, isFresh, isCurrentRange, loadLiveSnapshot, type WeekendData } from './weekendData';
 
 type State = {
   places: Place[];
@@ -65,6 +65,15 @@ export const useStore = create<State>((set, get) => ({
     if (!force && isFresh(get().weekendData)) return;
     set({ weekendLoading: true });
     try {
+      // 1순위: DB 의 cron 스냅샷 (즉시 — 매일 새벽 갱신).
+      if (!force) {
+        const fromDb = await loadLiveSnapshot();
+        if (isCurrentRange(fromDb)) {
+          set({ weekendData: fromDb, weekendLoading: false });
+          return;
+        }
+      }
+      // 2순위: 클라이언트에서 Gemini 직접 호출 (cron 이 아직 안 돌았거나 force).
       const data = await fetchWeekendData();
       set({ weekendData: data, weekendLoading: false });
     } catch (e: any) {
@@ -216,6 +225,10 @@ export const useStore = create<State>((set, get) => ({
       timer = setTimeout(() => get().refresh(), 300);
     };
 
+    const debouncedRefreshWeekend = () => {
+      setTimeout(() => get().refreshWeekend(true), 300);
+    };
+
     const channel = supabase
       .channel('shared-state')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wishlist' }, debouncedRefresh)
@@ -224,6 +237,7 @@ export const useStore = create<State>((set, get) => ({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'discoveries' }, debouncedRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_snapshots' }, debouncedRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_snapshot' }, debouncedRefreshWeekend)
       .subscribe();
 
     return () => {

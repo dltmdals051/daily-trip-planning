@@ -1,10 +1,10 @@
-// 이번 주말 탭: today → 다음 일요일 데이터를 Gemini 로 즉석 fetch
-// 행사+추천 한 번에 부르고 6시간 캐싱.
+// 매일 새벽 cron 으로 실행.
+// 오늘 ~ 다음 일요일 범위로 weather + events + AI 추천을 받아서 live_snapshot 에 upsert.
 
+import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
-import { fetchClientWeather } from './clientWeather';
-import { supabase } from './supabase';
-import type { WeatherDay, EventItem, AIPlace } from './types';
+import { fetchWuxiWeekend } from './lib/weather';
+import type { WeatherDay } from '../lib/types';
 
 const SYSTEM = `너는 중국 우시(无锡)에 사는 한국인 + 산동 출신 여자친구 커플을 위한 주말 큐레이터다.
 사용자가 준 날짜 범위(오늘~다음 일요일)에 대해 Google Search로 검증된 행사와 장소를 추천한다.
@@ -78,48 +78,40 @@ ${weatherSummary}
 - imageUrl 확실하지 않으면 키 생략.`;
 }
 
-export type WeekendData = {
-  startDate: string;
-  endDate: string;
-  weather: WeatherDay[];
-  events: EventItem[];
-  recommendations: AIPlace[];
-  generatedAt: string;
-  notes?: string | null;
-  error?: string;
-};
-
-export function getWeekendRange(now: Date = new Date()): { start: Date; end: Date } {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const dow = start.getDay(); // 0=Sun, 6=Sat
+function getRange(now: Date = new Date()): { start: Date; end: Date } {
+  // CST (UTC+8) 기준으로 "오늘" 계산
+  const cstNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const start = new Date(Date.UTC(cstNow.getUTCFullYear(), cstNow.getUTCMonth(), cstNow.getUTCDate()));
+  const dow = start.getUTCDay();
   const end = new Date(start);
-  // 일요일이면 그 다음 주 일요일까지 (8일), 아니면 이번 주 일요일까지
-  end.setDate(start.getDate() + (dow === 0 ? 7 : 7 - dow));
+  end.setUTCDate(start.getUTCDate() + (dow === 0 ? 7 : 7 - dow));
   return { start, end };
 }
 
-export async function fetchWeekendData(): Promise<WeekendData> {
-  const { start, end } = getWeekendRange();
+async function main() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!url || !key) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 필요');
+  if (!apiKey) throw new Error('GEMINI_API_KEY 필요');
+
+  const client = createClient(url, key, { auth: { persistSession: false } });
+
+  const { start, end } = getRange();
   const startStr = start.toISOString().slice(0, 10);
   const endStr = end.toISOString().slice(0, 10);
 
-  const weather = await fetchClientWeather(start, end);
+  console.log(`[live] range: ${startStr} ~ ${endStr}`);
 
-  const empty: WeekendData = {
-    startDate: startStr,
-    endDate: endStr,
-    weather,
-    events: [],
-    recommendations: [],
-    generatedAt: new Date().toISOString(),
-  };
-
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    return { ...empty, error: 'EXPO_PUBLIC_GEMINI_API_KEY 미설정' };
+  let weather: WeatherDay[] = [];
+  try {
+    weather = await fetchWuxiWeekend(start, end);
+    console.log(`[live] weather: ${weather.length} days`);
+  } catch (e) {
+    console.error('[live] weather failed', e);
   }
 
+  console.log('[live] Gemini 검색 중...');
   const ai = new GoogleGenAI({ apiKey });
   let text = '';
   try {
@@ -134,65 +126,43 @@ export async function fetchWeekendData(): Promise<WeekendData> {
     });
     text = (response.text ?? '').trim();
   } catch (e) {
-    return { ...empty, error: `Gemini 호출 실패: ${(e as Error).message}` };
+    console.error('[live] Gemini 실패', e);
+    throw e;
   }
 
+  let parsed: any = { events: [], recommendations: [], notes: null };
   const jsonStart = text.indexOf('{');
   const jsonEnd = text.lastIndexOf('}');
-  if (jsonStart < 0 || jsonEnd < 0) {
-    return { ...empty, notes: 'parse failed' };
+  if (jsonStart >= 0 && jsonEnd >= 0) {
+    try {
+      parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+    } catch (e) {
+      console.error('[live] JSON 파싱 실패', e);
+    }
+  } else {
+    console.warn('[live] Gemini 응답에 JSON 없음. 원문:', text.slice(0, 300));
   }
 
-  try {
-    const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
-    return {
-      ...empty,
-      events: Array.isArray(parsed.events) ? parsed.events : [],
-      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
-      notes: parsed.notes ?? null,
-    };
-  } catch (e) {
-    return { ...empty, notes: `json parse: ${(e as Error).message}` };
-  }
+  const events = Array.isArray(parsed.events) ? parsed.events : [];
+  const recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
+
+  console.log(`[live] events: ${events.length}, recommendations: ${recommendations.length}`);
+
+  const { error } = await client.from('live_snapshot').upsert({
+    id: 1,
+    start_date: startStr,
+    end_date: endStr,
+    weather,
+    events,
+    ai_recommendations: recommendations,
+    notes: parsed.notes ?? null,
+    generated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+  console.log('[live] upsert 완료');
 }
 
-// 6시간 이내 + 같은 날짜 범위면 캐시 유효
-const STALE_MS = 6 * 60 * 60 * 1000;
-
-export function isFresh(data: WeekendData | null): boolean {
-  if (!data) return false;
-  const { start, end } = getWeekendRange();
-  if (data.startDate !== start.toISOString().slice(0, 10)) return false;
-  if (data.endDate !== end.toISOString().slice(0, 10)) return false;
-  return Date.now() - new Date(data.generatedAt).getTime() < STALE_MS;
-}
-
-// 같은 날짜 범위인지만 체크 (cron 이 만든 데이터는 신선도 무관하게 일단 신뢰)
-export function isCurrentRange(data: WeekendData | null): boolean {
-  if (!data) return false;
-  const { start, end } = getWeekendRange();
-  return (
-    data.startDate === start.toISOString().slice(0, 10) &&
-    data.endDate === end.toISOString().slice(0, 10)
-  );
-}
-
-// 1차: DB 의 cron 생성 스냅샷 로드 (즉시).
-// null 이거나 날짜 범위 다르면 호출자가 client fetch fallback.
-export async function loadLiveSnapshot(): Promise<WeekendData | null> {
-  const { data, error } = await supabase
-    .from('live_snapshot')
-    .select('*')
-    .eq('id', 1)
-    .maybeSingle();
-  if (error || !data) return null;
-  return {
-    startDate: data.start_date,
-    endDate: data.end_date,
-    weather: data.weather ?? [],
-    events: data.events ?? [],
-    recommendations: data.ai_recommendations ?? [],
-    generatedAt: data.generated_at,
-    notes: data.notes,
-  };
-}
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

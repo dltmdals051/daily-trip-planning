@@ -8,6 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "generate": "tsx scripts/generate-weekly.ts",
+    "generate-live": "tsx scripts/generate-live.ts",
     "seed": "tsx scripts/seed-places.ts",
     "typecheck": "tsc --noEmit"
   },
