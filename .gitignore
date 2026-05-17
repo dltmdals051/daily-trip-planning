@@ -3,6 +3,7 @@ node_modules/
 .expo-shared/
 dist/
 web-build/
+.cache/
 .env
 .env.local
 .env.*.local

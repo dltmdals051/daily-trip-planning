@@ -29,9 +29,15 @@
       "output": "static"
     },
     "plugins": ["expo-router"],
+    "experiments": {
+      "baseUrl": "/daily-trip-planning"
+    },
     "extra": {
       "supabaseUrl": null,
-      "supabaseAnonKey": null
+      "supabaseAnonKey": null,
+      "router": {
+        "origin": false
+      }
     }
   }
 }

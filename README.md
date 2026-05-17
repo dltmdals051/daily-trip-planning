@@ -46,11 +46,12 @@ Expo React Native 앱. 우시 거주 한중 커플 둘이 매 주말 갈 곳을 
 
 레포 Settings → Secrets and variables → Actions:
 
-| Name | 출처 |
-| --- | --- |
-| `SUPABASE_URL` | Supabase Project Settings → API → Project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Project Settings → API → service_role (절대 공개 금지) |
-| `ANTHROPIC_API_KEY` | https://console.anthropic.com |
+| Name | 출처 | 어디 쓰임 |
+| --- | --- | --- |
+| `SUPABASE_URL` | Supabase Project Settings → API → Project URL | 백엔드 (cron) + PWA 빌드 |
+| `SUPABASE_ANON_KEY` | Supabase Project Settings → API → anon (공개 가능) | PWA 빌드 (클라이언트) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Project Settings → API → service_role (절대 공개 금지) | 백엔드 (cron, seed) |
+| `ANTHROPIC_API_KEY` | https://console.anthropic.com | 행사 검색 cron |
 
 ### 3. 장소 시드 (최초 1회)
 
@@ -73,9 +74,23 @@ npm start
 
 Expo Go 앱으로 QR 스캔 → 폰에서 바로 실행.
 
-### 6. APK / TestFlight 빌드
+### 6. PWA (가장 빠른 배포 — 권장)
 
-EAS 사용:
+네이티브 앱 빌드 전에 **GitHub Pages PWA**로 먼저 둘이 써볼 수 있어.
+
+1. Settings → Pages → Source: **GitHub Actions** 선택
+2. `main` 브랜치에 push → "Deploy Web (PWA → GitHub Pages)" 자동 실행
+3. `https://<유저>.github.io/daily-trip-planning/` 접속
+4. 휴대폰에서 그 URL 열고:
+   - **iOS Safari**: 공유 버튼 → 홈 화면에 추가
+   - **Android Chrome**: 메뉴 → 앱 설치 (또는 "홈 화면에 추가")
+5. 설치되면 일반 앱처럼 풀스크린·아이콘 그대로
+
+> ⚠️ 다른 레포 이름이면 `app.json`의 `experiments.baseUrl`을 `/<레포명>`으로 바꿔야 함.
+
+### 7. APK / TestFlight 빌드 (선택)
+
+PWA로는 부족하면 진짜 네이티브로:
 
 ```bash
 npx eas-cli build --platform android --profile preview   # APK
