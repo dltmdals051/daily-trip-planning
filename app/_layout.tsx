@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useLang } from '@/lib/i18n';
 import { theme } from '@/lib/theme';
 import { useStore } from '@/lib/store';
+import { ErrorBanner } from '@/components/ErrorBanner';
 import type { Session } from '@supabase/supabase-js';
 
 export default function RootLayout() {
@@ -47,6 +48,7 @@ export default function RootLayout() {
         <Stack.Screen name="login" options={{ presentation: 'modal' }} />
         <Stack.Screen name="custom" options={{ headerShown: true, presentation: 'modal' }} />
       </Stack>
+      <ErrorBanner />
     </View>
   );
 }

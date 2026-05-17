@@ -10,7 +10,7 @@ const EMOJI_PICKS = ['😺', '🌸', '🐰', '🦊', '🐻', '🐼', '🌻', '�
 
 export default function SettingsScreen() {
   const { lang, setLang } = useLang();
-  const { profiles, me, refresh, updateProfile } = useStore();
+  const { profiles, me, refresh, updateProfile, reset } = useStore();
   const [email, setEmail] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -73,7 +73,13 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={s.signOut} onPress={() => supabase.auth.signOut()}>
+        <TouchableOpacity
+          style={s.signOut}
+          onPress={async () => {
+            await supabase.auth.signOut();
+            reset();
+          }}
+        >
           <Text style={s.signOutText}>{t('signOut', lang)}</Text>
         </TouchableOpacity>
 

@@ -219,3 +219,12 @@ export function saveCache(data: WeekendData): void {
     // localStorage 가득 차거나 차단된 경우 무시
   }
 }
+
+export function clearCache(): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    window.localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}

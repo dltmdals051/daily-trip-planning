@@ -54,17 +54,6 @@ export type Recommendation = {
   reasons: string[];
 };
 
-export type WeeklySnapshot = {
-  id: string;
-  weekend_saturday: string;
-  weekend_sunday: string;
-  weather: WeatherDay[];
-  events: EventItem[];
-  recommendations: Recommendation[];
-  model_notes?: string | null;
-  generated_at: string;
-};
-
 export type Visit = {
   id: string;
   user_id: string;

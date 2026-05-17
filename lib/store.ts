@@ -1,14 +1,12 @@
 import { create } from 'zustand';
 import { supabase } from './supabase';
-import type { Place, WeeklySnapshot, Visit, WishlistRow, VoteRow, Discovery, Profile } from './types';
-import { fetchWeekendData, isFresh, isCurrentRange, loadLiveSnapshot, loadCache, saveCache, type WeekendData } from './weekendData';
+import type { Place, Visit, WishlistRow, Discovery, Profile } from './types';
+import { fetchWeekendData, isFresh, isCurrentRange, loadLiveSnapshot, loadCache, saveCache, clearCache, type WeekendData } from './weekendData';
 
 type State = {
   places: Place[];
-  weekly: WeeklySnapshot | null;
   visits: Visit[];
   wishlist: WishlistRow[];
-  votes: VoteRow[];
   discoveries: Discovery[];
   profiles: Profile[];
   me: string | null;
@@ -19,13 +17,14 @@ type State = {
   refresh: () => Promise<void>;
   refreshWeekend: (force?: boolean) => Promise<void>;
   toggleWish: (placeId: string) => Promise<void>;
-  toggleVote: (placeId: string) => Promise<void>;
   addVisit: (placeId: string, rating: number | null, memo: string) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
   addDiscovery: (input: { title: string; url?: string; city?: string; category?: string; memo?: string; source?: string }) => Promise<void>;
   deleteDiscovery: (id: string) => Promise<void>;
   updateProfile: (patch: { display_name?: string; emoji?: string; color?: string }) => Promise<void>;
   subscribe: () => () => void;
+  reset: () => void;
+  clearError: () => void;
 };
 
 function placeFromRow(r: any): Place {
@@ -49,10 +48,8 @@ function placeFromRow(r: any): Place {
 
 export const useStore = create<State>((set, get) => ({
   places: [],
-  weekly: null,
   visits: [],
   wishlist: [],
-  votes: [],
   discoveries: [],
   profiles: [],
   me: null,
@@ -81,44 +78,37 @@ export const useStore = create<State>((set, get) => ({
       const data = await fetchWeekendData();
       saveCache(data);
       set({ weekendData: data, weekendLoading: false });
+      if (data.error) set({ error: data.error });
     } catch (e: any) {
-      set({ weekendLoading: false });
+      const msg = e?.message ?? String(e);
+      set({ weekendLoading: false, error: msg });
       console.error('[weekendData]', e);
     }
   },
+
+  clearError: () => set({ error: null }),
 
   refresh: async () => {
     set({ loading: true, error: null });
     try {
       const { data: user } = await supabase.auth.getUser();
       const meId = user.user?.id ?? null;
-      const [placesRes, weeklyRes, visitsRes, wishRes, votesRes, discRes, profRes] = await Promise.all([
+      const [placesRes, visitsRes, wishRes, discRes, profRes] = await Promise.all([
         supabase.from('places').select('*'),
-        supabase
-          .from('weekly_snapshots')
-          .select('*')
-          .order('weekend_saturday', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
         supabase.from('visits').select('*').order('visited_on', { ascending: false }),
         supabase.from('wishlist').select('*'),
-        supabase.from('weekend_votes').select('*'),
         supabase.from('discoveries').select('*').order('created_at', { ascending: false }),
         supabase.from('profiles').select('*'),
       ]);
       if (placesRes.error) throw placesRes.error;
-      if (weeklyRes.error) throw weeklyRes.error;
       if (visitsRes.error) throw visitsRes.error;
       if (wishRes.error) throw wishRes.error;
-      if (votesRes.error) throw votesRes.error;
       if (discRes.error) throw discRes.error;
       if (profRes.error) throw profRes.error;
       set({
         places: (placesRes.data ?? []).map(placeFromRow),
-        weekly: (weeklyRes.data as WeeklySnapshot | null) ?? null,
         visits: (visitsRes.data ?? []) as Visit[],
         wishlist: (wishRes.data ?? []) as WishlistRow[],
-        votes: (votesRes.data ?? []) as VoteRow[],
         discoveries: (discRes.data ?? []) as Discovery[],
         profiles: (profRes.data ?? []) as Profile[],
         me: meId,
@@ -137,31 +127,6 @@ export const useStore = create<State>((set, get) => ({
       await supabase.from('wishlist').delete().eq('user_id', user.user.id).eq('place_id', placeId);
     } else {
       await supabase.from('wishlist').insert({ user_id: user.user.id, place_id: placeId });
-    }
-    await get().refresh();
-  },
-
-  toggleVote: async placeId => {
-    const w = get().weekly;
-    if (!w) return;
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) return;
-    const exists = get().votes.find(
-      v => v.user_id === user.user!.id && v.weekend_saturday === w.weekend_saturday && v.place_id === placeId,
-    );
-    if (exists) {
-      await supabase
-        .from('weekend_votes')
-        .delete()
-        .eq('user_id', user.user.id)
-        .eq('weekend_saturday', w.weekend_saturday)
-        .eq('place_id', placeId);
-    } else {
-      await supabase.from('weekend_votes').insert({
-        user_id: user.user.id,
-        weekend_saturday: w.weekend_saturday,
-        place_id: placeId,
-      });
     }
     await get().refresh();
   },
@@ -237,10 +202,8 @@ export const useStore = create<State>((set, get) => ({
     const channel = supabase
       .channel('shared-state')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wishlist' }, debouncedRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'weekend_votes' }, debouncedRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'visits' }, debouncedRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'discoveries' }, debouncedRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_snapshots' }, debouncedRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, debouncedRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_snapshot' }, debouncedRefreshWeekend)
       .subscribe();
@@ -249,6 +212,22 @@ export const useStore = create<State>((set, get) => ({
       if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
+  },
+
+  reset: () => {
+    clearCache();
+    set({
+      places: [],
+      visits: [],
+      wishlist: [],
+      discoveries: [],
+      profiles: [],
+      me: null,
+      loading: false,
+      error: null,
+      weekendData: null,
+      weekendLoading: false,
+    });
   },
 }));
 
