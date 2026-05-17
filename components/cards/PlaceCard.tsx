@@ -12,16 +12,11 @@ type Props = {
   reasons?: string[];
   wishCount?: number;
   bothWish?: boolean;
-  voteCount?: number;
-  bothVote?: boolean;
-  iVote?: boolean;
   iWish?: boolean;
   onWish?: () => void;
-  onVote?: () => void;
   onMarkVisited?: () => void;
   visitCount?: number;
   wishActors?: string;
-  voteActors?: string;
 };
 
 export function PlaceCard({
@@ -31,20 +26,15 @@ export function PlaceCard({
   reasons,
   wishCount,
   bothWish,
-  voteCount,
-  bothVote,
-  iVote,
   iWish,
   onWish,
-  onVote,
   onMarkVisited,
   visitCount,
   wishActors,
-  voteActors,
 }: Props) {
   const lang = useLang(s => s.lang);
   return (
-    <View style={[s.card, bothVote && s.cardConsensus]}>
+    <View style={[s.card, bothWish && s.cardConsensus]}>
       {/* Top stripe with rank + status badges */}
       <View style={s.topRow}>
         {rank !== undefined && (
@@ -59,14 +49,9 @@ export function PlaceCard({
           </LinearGradient>
         )}
         <View style={{ flex: 1 }} />
-        {bothVote && (
-          <View style={[s.statusPill, { backgroundColor: theme.accentDeep }]}>
-            <Text style={s.statusText}>🗳 합의</Text>
-          </View>
-        )}
         {bothWish && (
           <View style={[s.statusPill, { backgroundColor: theme.goodDeep }]}>
-            <Text style={s.statusText}>♥♥</Text>
+            <Text style={s.statusText}>♥♥ {t('wantedByBoth', lang)}</Text>
           </View>
         )}
         {visitCount !== undefined && visitCount > 0 && (
@@ -111,13 +96,7 @@ export function PlaceCard({
       )}
 
       {/* Actors */}
-      {(wishActors || voteActors) && (
-        <Text style={s.actors}>
-          {wishActors ? `♥ ${wishActors}` : ''}
-          {wishActors && voteActors ? '   ·   ' : ''}
-          {voteActors ? `🗳 ${voteActors}` : ''}
-        </Text>
-      )}
+      {wishActors && <Text style={s.actors}>♥ {wishActors}</Text>}
 
       {/* Action row */}
       <View style={s.actionRow}>
@@ -126,14 +105,6 @@ export function PlaceCard({
             label={`${iWish ? '♥' : '♡'} ${t('wantToGo', lang)}${wishCount ? `(${wishCount})` : ''}`}
             on={!!iWish}
             onPress={onWish}
-            primary
-          />
-        )}
-        {onVote && (
-          <ActionBtn
-            label={`${iVote ? '✓ ' : ''}${t('vote', lang)}${voteCount ? `(${voteCount})` : ''}`}
-            on={!!iVote}
-            onPress={onVote}
             primary
           />
         )}

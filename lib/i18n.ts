@@ -118,6 +118,20 @@ const dict = {
   editProfile: { ko: '수정', zh: '编辑' },
   bothLabel: { ko: '둘 다', zh: '两人' },
   by: { ko: '· ', zh: '· ' },
+  source: { ko: '출처', zh: '来源' },
+  saved: { ko: '저장됨', zh: '已保存' },
+  saveToDiscoveries: { ko: '발견에 저장', zh: '保存到发现' },
+  hoursShort: { ko: '시간', zh: '小时' },
+  minutesShort: { ko: '분', zh: '分' },
+  morePlaces: { ko: '개 더', zh: '个' },
+  aiSearchTitle: { ko: 'AI 실시간 검색', zh: 'AI 实时搜索' },
+  aiSearchSub: { ko: 'Gemini가 매번 구글에서 새로 찾아옴', zh: 'Gemini 每次实时搜索谷歌' },
+  aiAsk: { ko: 'AI에게 추천 받기', zh: '让 AI 推荐' },
+  aiSearching: { ko: 'Gemini가 검색 중... 보통 5~15초', zh: 'Gemini 正在搜索... 通常 5~15 秒' },
+  noResultsErr: { ko: '에러로 결과 없음', zh: '出错,无结果' },
+  cancel: { ko: '취소', zh: '取消' },
+  signoutConfirmTitle: { ko: '로그아웃', zh: '退出登录' },
+  signoutConfirmMsg: { ko: '정말 로그아웃할까요?', zh: '确定要退出登录吗?' },
 } as const;
 
 export type DictKey = keyof typeof dict;

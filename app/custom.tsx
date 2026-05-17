@@ -121,12 +121,8 @@ export default function CustomScreen() {
             <Text style={{ fontSize: 22 }}>🤖</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.aiBannerTitle}>{lang === 'ko' ? 'AI 실시간 검색' : 'AI 实时搜索'}</Text>
-            <Text style={s.aiBannerSub}>
-              {lang === 'ko'
-                ? 'Gemini가 매번 구글에서 새로 찾아옴'
-                : 'Gemini 每次实时搜索谷歌'}
-            </Text>
+            <Text style={s.aiBannerTitle}>{t('aiSearchTitle', lang)}</Text>
+            <Text style={s.aiBannerSub}>{t('aiSearchSub', lang)}</Text>
           </View>
         </LinearGradient>
 
@@ -223,9 +219,7 @@ export default function CustomScreen() {
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={[s.btnText, { color: '#fff' }]}>
-                ✨ {lang === 'ko' ? 'AI에게 추천 받기' : '让 AI 推荐'}
-              </Text>
+              <Text style={[s.btnText, { color: '#fff' }]}>✨ {t('aiAsk', lang)}</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity style={[s.btn, s.btnSecondary]} onPress={reset}>
@@ -235,9 +229,7 @@ export default function CustomScreen() {
 
         {busy && (
           <View style={s.loadingBox}>
-            <Text style={s.loadingText}>
-              {lang === 'ko' ? 'Gemini가 검색 중... 보통 5~15초' : 'Gemini 正在搜索... 通常 5~15 秒'}
-            </Text>
+            <Text style={s.loadingText}>{t('aiSearching', lang)}</Text>
           </View>
         )}
 

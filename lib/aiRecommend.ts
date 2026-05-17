@@ -126,43 +126,26 @@ export async function aiRecommend(
 }
 
 async function enrichWithWikiImage(p: AIPlace): Promise<AIPlace> {
-  // 항상 Wiki/Commons 부터 시도 (Gemini 의 imageUrl 은 자주 broken/hot-link 차단).
-  // 셋 다 실패해야 Gemini 가 준 거 fallback 으로.
-  let img: string | undefined;
-  let stage = '';
-
-  img = await fetchWikiImage(p.nameZh);
-  if (img) stage = 'wiki';
-
-  if (!img) {
-    img = await fetchPageImagesThumb(p.nameZh);
-    if (img) stage = 'pageimages';
-  }
-  if (!img) {
-    img = await fetchCommonsImage(`${p.nameZh} ${p.city}`);
-    if (img) stage = 'commons-city';
-  }
-  if (!img) {
-    img = await fetchCommonsImage(p.nameZh);
-    if (img) stage = 'commons-only';
-  }
-  if (!img && p.imageUrl) {
-    img = p.imageUrl;
-    stage = 'gemini';
-  }
-
-  if (typeof window !== 'undefined') {
-    console.log(`[image] ${p.nameZh} → ${stage || 'NONE'}:`, img);
-  }
+  // Wikipedia/Commons 우선 — 일반적으로 hot-link 친화적이고 안정적.
+  // 못 찾으면 Gemini 가 준 imageUrl 사용 (있다면).
+  const [zhWiki, enWiki, commons] = await Promise.all([
+    fetchPageImagesThumb('zh', p.nameZh),
+    fetchPageImagesThumb('en', p.nameZh),
+    fetchCommonsImage(p.nameZh),
+  ]);
+  const img = zhWiki || enWiki || commons || p.imageUrl;
   return img ? { ...p, imageUrl: img } : { ...p, imageUrl: undefined };
 }
 
-async function fetchPageImagesThumb(title: string): Promise<string | undefined> {
+// PageImages 가 통합 검색·요약·이미지를 한 번에 줘서 opensearch + summary 두 번 부르는 것보다 빠르고
+// 작은 thumb (400px) 라 로딩도 가벼움.
+async function fetchPageImagesThumb(lang: 'zh' | 'en', title: string): Promise<string | undefined> {
   if (!title) return undefined;
   try {
     const url =
-      `https://zh.wikipedia.org/w/api.php?action=query&format=json&origin=*` +
-      `&prop=pageimages&pithumbsize=800&titles=${encodeURIComponent(title)}`;
+      `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*` +
+      `&generator=search&gsrlimit=1&gsrsearch=${encodeURIComponent(title)}` +
+      `&prop=pageimages&pithumbsize=400&piprop=thumbnail`;
     const res = await fetch(url);
     if (!res.ok) return undefined;
     const json = (await res.json()) as {
@@ -175,32 +158,6 @@ async function fetchPageImagesThumb(title: string): Promise<string | undefined> 
       if (src) return src;
     }
     return undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-async function fetchWikiImage(title: string): Promise<string | undefined> {
-  if (!title) return undefined;
-  // 1) opensearch 로 가장 가까운 페이지 제목 찾기
-  let pageTitle: string | null = null;
-  try {
-    const url = `https://zh.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(title)}&limit=1&namespace=0&format=json&origin=*`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const arr = (await res.json()) as [string, string[], string[], string[]];
-      if (arr?.[1]?.[0]) pageTitle = arr[1][0];
-    }
-  } catch {}
-  if (!pageTitle) pageTitle = title;
-
-  // 2) summary 엔드포인트로 대표 이미지
-  try {
-    const url = `https://zh.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`;
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!res.ok) return undefined;
-    const json = (await res.json()) as { thumbnail?: { source?: string }; originalimage?: { source?: string } };
-    return json.originalimage?.source || json.thumbnail?.source;
   } catch {
     return undefined;
   }
