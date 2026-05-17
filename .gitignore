@@ -1,9 +1,15 @@
 node_modules/
-.next/
-out/
+.expo/
+.expo-shared/
+dist/
+web-build/
 .env
 .env.local
+.env.*.local
 *.log
 .DS_Store
 .vscode/
 .idea/
+android/
+ios/
+*.tsbuildinfo

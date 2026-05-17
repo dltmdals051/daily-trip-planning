@@ -1,94 +1,133 @@
-# 우시 주말 플래너 (Wuxi Weekend Planner)
+# 우시 주말 (Wuxi Weekend) 모바일 앱
 
-우시 거주 한중 커플(특히 한국인 + 산동 출신 여친)을 위한 매주 자동 갱신 주말 코스 추천 사이트.
+Expo React Native 앱. 우시 거주 한중 커플 둘이 매 주말 갈 곳을 공유하고 투표·기록하기 위한 사적인 앱.
 
-## 동작 방식
+## 핵심 기능
 
-1. **장소 DB** (`data/places.json`) — 우시 + 강소성 + 인접 상하이/항저우 큐레이션
-2. **매주 금요일 18:00 UTC** GitHub Actions가 자동 실행:
-   - OpenMeteo로 토/일 우시 날씨 가져옴
-   - Claude API (`claude-sonnet-4-6`) + 웹검색으로 이번 주말 행사 검색
-   - `lib/recommend.ts`의 점수 로직으로 8개 추천 선정 (날씨/계절/방문기록/거리/행사 가중치)
-   - `data/weekly.json`에 커밋
-3. **GitHub Pages**가 정적 사이트로 배포 → 휴대폰에서 북마크해서 보면 됨
+- **이번 주말 탭** — 토/일 날씨 + Claude로 검색한 이번 주 행사 + 추천 코스 (8개) + 둘이 투표
+- **장소 탭** — 큐레이션된 우시·강소성 명소 30개+. 도시별 필터, '가고싶어' 하트, '다녀옴' 등록
+- **방문 기록 탭** — 둘이 같이 본 공유 방문 기록 (평점·메모)
+- **설정 탭** — 한국어 / 中文 토글, 로그아웃
+
+## 기술 스택
+
+| Layer | Tool |
+| --- | --- |
+| 모바일 | Expo SDK 51 + React Native, Expo Router |
+| 백엔드 | Supabase (Postgres + Auth) |
+| 상태 | Zustand |
+| 데이터 갱신 | GitHub Actions (매주 금요일 18:00 UTC) |
+| 날씨 | Open-Meteo (무료, 키 불필요) |
+| 행사 검색 | Claude Sonnet 4.6 + `web_search` tool |
 
 ## 셋업
 
-### 1. 로컬 개발
+### 1. Supabase 프로젝트 생성
 
-```bash
-npm install
-npm run dev          # http://localhost:3000
-npm run generate     # 주말 데이터 한 번 생성 (.env에 ANTHROPIC_API_KEY 필요)
-```
+1. https://supabase.com 에서 새 프로젝트 (Hong Kong / Singapore 리전이 중국에서 빠름)
+2. SQL Editor에서 `supabase/migrations/20260517000000_init.sql` 실행
+3. Authentication → Providers → Email 켜고, Magic Link 활성화
+4. Authentication → URL Configuration → Redirect URLs에 `wuxiweekend://login-callback` 추가
+5. **둘만 가입 허용:**
+   SQL Editor에서 본인+여친 이메일 추가:
+   ```sql
+   insert into allowed_members(email, display_name) values
+     ('me@example.com', '나'),
+     ('gf@example.com', '여친');
+   ```
 
-### 2. GitHub 시크릿 설정
+### 2. GitHub Secrets
 
 레포 Settings → Secrets and variables → Actions:
 
-- `ANTHROPIC_API_KEY` — https://console.anthropic.com 에서 발급
+| Name | 출처 |
+| --- | --- |
+| `SUPABASE_URL` | Supabase Project Settings → API → Project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Project Settings → API → service_role (절대 공개 금지) |
+| `ANTHROPIC_API_KEY` | https://console.anthropic.com |
 
-### 3. GitHub Pages 활성화
+### 3. 장소 시드 (최초 1회)
 
-Settings → Pages → Source: **GitHub Actions** 선택.
-첫 푸시 후 워크플로우가 돌면 `https://<유저>.github.io/<레포명>/` 에서 확인.
+GitHub Actions 탭 → "Seed Places (manual)" → Run workflow.
+`data/places.json` 의 30개 장소가 Supabase `places` 테이블에 들어감.
+이후 장소를 추가/수정하면 다시 실행.
 
-### 4. (선택) 수동 트리거
+### 4. 매주 자동 갱신 확인
 
-Actions 탭 → "Weekly Update" → Run workflow. 데이터 갱신 즉시 테스트 가능.
+"Weekly Update (Supabase)" 워크플로우를 한 번 수동 실행 → 다음 주말 날씨/행사/추천이 Supabase에 들어감.
 
-## 다녀온 곳 기록
+### 5. 모바일 앱 실행
 
-`data/visited.json`에 추가:
-
-```json
-{
-  "visits": [
-    { "id": "wuxi-yuantouzhu", "date": "2026-04-12" },
-    { "id": "suzhou-pingjiang", "date": "2026-03-29" }
-  ]
-}
+```bash
+npm install
+cp .env.example .env.local
+# .env.local 에 EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY 채움
+npm start
 ```
 
-추천 로직이 자동으로:
-- 30일 이내 방문 → 추천 제외
-- 90일 이내 → 후순위
-- 180일 이상 → 다시 추천
+Expo Go 앱으로 QR 스캔 → 폰에서 바로 실행.
 
-`id`는 `data/places.json`의 ID 참고. 직접 PR/커밋으로 관리.
+### 6. APK / TestFlight 빌드
 
-## 장소 추가하기
+EAS 사용:
 
-`data/places.json`에 새 항목 추가. 필드는 `lib/types.ts`의 `Place` 타입 참고.
+```bash
+npx eas-cli build --platform android --profile preview   # APK
+npx eas-cli build --platform ios --profile preview       # TestFlight
+```
 
-## 추천 점수 튜닝
-
-`lib/recommend.ts`에서 가중치 조정:
-- `weatherFit` — 비/폭염일 때 야외 페널티
-- `seasonFit` — 계절 베스트일 때 보너스
-- `recencyPenalty` — 최근 방문 페널티
-- `eventBoost` — 같은 도시 행사 있으면 부스트
-- `distancePenalty` — 거리별 페널티
+빌드된 APK를 위챗으로 여친한테 공유 → 설치. iOS는 TestFlight 초대.
 
 ## 파일 구조
 
 ```
-app/                    Next.js App Router (정적 export)
-  page.tsx              메인 대시보드
-  layout.tsx
-  globals.css
+app/                              Expo Router (file-based)
+  _layout.tsx                     세션 가드
+  login.tsx                       매직링크 로그인
+  (tabs)/
+    _layout.tsx                   탭 네비
+    index.tsx                     이번 주말
+    places.tsx                    장소 (필터/하트/방문등록)
+    visited.tsx                   방문 기록
+    settings.tsx                  언어/로그아웃
+components/cards/
+  WeatherCard.tsx
+  EventCard.tsx
+  PlaceCard.tsx
 lib/
-  types.ts              타입 정의
-  recommend.ts          추천 로직 (가중치)
-  weather.ts            OpenMeteo 클라이언트
-  events.ts             Claude API + 웹검색
+  types.ts                        공용 타입
+  supabase.ts                     Supabase 클라이언트
+  store.ts                        Zustand (서버 상태)
+  i18n.ts                         한/중 사전
+  theme.ts                        다크 테마
+  recommend.ts                    추천 점수 로직 (스크립트 공용)
 scripts/
-  generate-weekly.ts    매주 실행되는 데이터 생성 스크립트
+  seed-places.ts                  places.json → Supabase
+  generate-weekly.ts              매주 날씨/행사/추천 → Supabase
+  lib/
+    weather.ts                    Open-Meteo
+    events.ts                     Claude + web_search
+supabase/migrations/
+  20260517000000_init.sql         초기 스키마 + RLS
 data/
-  places.json           큐레이션된 장소 DB
-  visited.json          방문 기록 (수동 관리)
-  weekly.json           자동 생성됨 (날씨+행사+추천)
+  places.json                     큐레이션된 장소 (소스 오브 트루스)
 .github/workflows/
-  weekly-update.yml     매주 금요일 데이터 갱신
-  deploy-pages.yml      Pages 배포
+  weekly-update.yml               매주 금요일 cron
+  seed.yml                        수동 시드
 ```
+
+## 추천 점수 튜닝
+
+`lib/recommend.ts`:
+- 날씨 (비/폭염): 야외 -5 / 실내 +3
+- 계절 베스트: +2
+- 최근 30일 방문: -10 (제외), 90일: -3, 180일: -1
+- 같은 도시에 이번 주말 행사: +4
+- 거리: 30분 이내 +1, 90분 초과 -2
+- 데이트 점수 8↑: +1
+
+## 장소 추가하기
+
+1. `data/places.json` 에 새 항목 추가 (`lib/types.ts` 의 `Place` 타입 참고)
+2. GitHub Actions → "Seed Places" 실행
+3. 다음 generate에서 추천 풀에 자동 포함

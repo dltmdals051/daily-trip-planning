@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Wuxi Weekend",
+    "slug": "wuxi-weekend-planner",
+    "scheme": "wuxiweekend",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wuxiweekend.app"
+    },
+    "android": {
+      "package": "com.wuxiweekend.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f1216"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router"],
+    "extra": {
+      "supabaseUrl": null,
+      "supabaseAnonKey": null
+    }
+  }
+}

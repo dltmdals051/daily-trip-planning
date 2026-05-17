@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { EventItem } from './types';
+import type { EventItem } from '../../lib/types';
 
 const SYSTEM = `너는 중국 우시(无锡)에 사는 한국인 사용자(여자친구는 산동 출신)를 위해
 이번 주말(토~일) 무시 + 강소성(쑤저우/난징/창저우/양저우/전장) + 가까운 상하이/항저우의

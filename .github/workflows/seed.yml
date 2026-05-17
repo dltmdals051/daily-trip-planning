@@ -1,13 +1,10 @@
-name: Weekly Update (Supabase)
+name: Seed Places (manual)
 
 on:
-  schedule:
-    # 매주 금요일 18:00 UTC = 토요일 03:00 KST = 토요일 02:00 CST
-    - cron: '0 18 * * 5'
   workflow_dispatch: {}
 
 jobs:
-  generate:
+  seed:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,12 +12,9 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-
       - run: npm ci
-
-      - name: Generate weekly snapshot
+      - name: Upsert places.json to Supabase
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run generate
+        run: npm run seed

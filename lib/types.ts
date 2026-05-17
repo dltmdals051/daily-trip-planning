@@ -49,16 +49,41 @@ export type EventItem = {
 };
 
 export type Recommendation = {
-  place: Place;
+  place_id: string;
   score: number;
   reasons: string[];
 };
 
-export type WeeklyData = {
-  generatedAt: string;
-  weekendDates: { saturday: string; sunday: string };
+export type WeeklySnapshot = {
+  id: string;
+  weekend_saturday: string;
+  weekend_sunday: string;
   weather: WeatherDay[];
   events: EventItem[];
   recommendations: Recommendation[];
-  modelNotes?: string;
+  model_notes?: string | null;
+  generated_at: string;
+};
+
+export type Visit = {
+  id: string;
+  user_id: string;
+  place_id: string;
+  visited_on: string;
+  rating: number | null;
+  memo: string | null;
+  created_at: string;
+};
+
+export type WishlistRow = {
+  user_id: string;
+  place_id: string;
+  created_at: string;
+};
+
+export type VoteRow = {
+  user_id: string;
+  weekend_saturday: string;
+  place_id: string;
+  voted_at: string;
 };

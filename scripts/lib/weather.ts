@@ -1,4 +1,4 @@
-import type { WeatherDay } from './types';
+import type { WeatherDay } from '../../lib/types';
 
 const WUXI_LAT = 31.5;
 const WUXI_LON = 120.3;

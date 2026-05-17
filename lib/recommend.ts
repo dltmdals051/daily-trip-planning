@@ -1,6 +1,6 @@
 import type { Place, WeatherDay, EventItem, Recommendation } from './types';
 
-type VisitRecord = { id: string; date: string };
+type VisitRecord = { place_id: string; visited_on: string };
 
 const SEASON_BY_MONTH: Record<number, 'spring' | 'summer' | 'autumn' | 'winter'> = {
   1: 'winter', 2: 'winter', 3: 'spring', 4: 'spring', 5: 'spring',
@@ -41,7 +41,10 @@ function seasonFit(place: Place, date: Date): { score: number; reason: string } 
 }
 
 function recencyPenalty(place: Place, visits: VisitRecord[], now: Date): { score: number; reason: string } {
-  const last = visits.filter(v => v.id === place.id).map(v => new Date(v.date)).sort((a, b) => b.getTime() - a.getTime())[0];
+  const last = visits
+    .filter(v => v.place_id === place.id)
+    .map(v => new Date(v.visited_on))
+    .sort((a, b) => b.getTime() - a.getTime())[0];
   if (!last) return { score: 2, reason: '아직 안 가본 곳' };
   const d = daysBetween(now, last);
   if (d < 30) return { score: -10, reason: `최근 ${d}일 전 방문 → 제외` };
@@ -74,9 +77,9 @@ export function recommend(
   events: EventItem[],
   visits: VisitRecord[],
   now: Date,
-  topN = 6,
+  topN = 8,
 ): Recommendation[] {
-  const scored: Recommendation[] = places.map(place => {
+  const scored = places.map(place => {
     const parts = [
       weatherFit(place, weekend),
       seasonFit(place, now),
@@ -88,7 +91,7 @@ export function recommend(
     const base = place.dateScore / 2;
     const score = base + dateBonus + parts.reduce((sum, p) => sum + p.score, 0);
     const reasons = parts.map(p => p.reason).filter(Boolean);
-    return { place, score, reasons };
+    return { place_id: place.id, score, reasons };
   });
 
   return scored
