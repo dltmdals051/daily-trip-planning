@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { useLang, t } from '@/lib/i18n';
 import { theme } from '@/lib/theme';
@@ -11,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 
 export default function WeekendScreen() {
   const lang = useLang(s => s.lang);
+  const router = useRouter();
   const { places, weekly, votes, wishlist, loading, refresh, toggleVote, toggleWish } = useStore();
 
   useEffect(() => {
@@ -60,6 +62,11 @@ export default function WeekendScreen() {
               : t('noData', lang)}
           </Text>
         </View>
+
+        <TouchableOpacity style={s.customCta} onPress={() => router.push('/custom')}>
+          <Text style={s.customCtaText}>{t('customCta', lang)}</Text>
+          <Text style={s.customCtaSub}>{t('customCtaSub', lang)}</Text>
+        </TouchableOpacity>
 
         {(voteConsensus.length > 0 || wishConsensus.length > 0) && (
           <View style={s.consensusBox}>
@@ -217,4 +224,15 @@ const s = StyleSheet.create({
     borderRadius: 999,
   },
   consensusPillText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  customCta: {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.accent,
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  customCtaText: { fontSize: 15, fontWeight: '700', color: theme.accent, marginBottom: 2 },
+  customCtaSub: { fontSize: 11, color: theme.textDim },
 });

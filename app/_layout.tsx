@@ -37,6 +37,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="login" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="custom" options={{ headerShown: true, presentation: 'modal' }} />
       </Stack>
     </View>
   );

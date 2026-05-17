@@ -87,3 +87,27 @@ export type VoteRow = {
   place_id: string;
   voted_at: string;
 };
+
+export type CustomFilters = {
+  cities: string[];
+  categories: Category[];
+  costs: ('free' | 'cheap' | 'medium' | 'expensive')[];
+  maxTravelMinutes: number | null;
+  weather: WeatherPreference;
+  minDateScore: number;
+  excludeRecent: boolean;
+  startDate: string | null;
+  topN: number;
+};
+
+export const defaultFilters = (): CustomFilters => ({
+  cities: [],
+  categories: [],
+  costs: [],
+  maxTravelMinutes: null,
+  weather: 'any',
+  minDateScore: 0,
+  excludeRecent: true,
+  startDate: null,
+  topN: 8,
+});
