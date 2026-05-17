@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from './supabase';
-import type { Place, WeeklySnapshot, Visit, WishlistRow, VoteRow, Discovery } from './types';
+import type { Place, WeeklySnapshot, Visit, WishlistRow, VoteRow, Discovery, Profile } from './types';
 
 type State = {
   places: Place[];
@@ -9,6 +9,8 @@ type State = {
   wishlist: WishlistRow[];
   votes: VoteRow[];
   discoveries: Discovery[];
+  profiles: Profile[];
+  me: string | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -18,6 +20,8 @@ type State = {
   deleteVisit: (id: string) => Promise<void>;
   addDiscovery: (input: { title: string; url?: string; city?: string; category?: string; memo?: string; source?: string }) => Promise<void>;
   deleteDiscovery: (id: string) => Promise<void>;
+  updateProfile: (patch: { display_name?: string; emoji?: string; color?: string }) => Promise<void>;
+  subscribe: () => () => void;
 };
 
 function placeFromRow(r: any): Place {
@@ -46,13 +50,17 @@ export const useStore = create<State>((set, get) => ({
   wishlist: [],
   votes: [],
   discoveries: [],
+  profiles: [],
+  me: null,
   loading: false,
   error: null,
 
   refresh: async () => {
     set({ loading: true, error: null });
     try {
-      const [placesRes, weeklyRes, visitsRes, wishRes, votesRes, discRes] = await Promise.all([
+      const { data: user } = await supabase.auth.getUser();
+      const meId = user.user?.id ?? null;
+      const [placesRes, weeklyRes, visitsRes, wishRes, votesRes, discRes, profRes] = await Promise.all([
         supabase.from('places').select('*'),
         supabase
           .from('weekly_snapshots')
@@ -64,6 +72,7 @@ export const useStore = create<State>((set, get) => ({
         supabase.from('wishlist').select('*'),
         supabase.from('weekend_votes').select('*'),
         supabase.from('discoveries').select('*').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*'),
       ]);
       if (placesRes.error) throw placesRes.error;
       if (weeklyRes.error) throw weeklyRes.error;
@@ -71,6 +80,7 @@ export const useStore = create<State>((set, get) => ({
       if (wishRes.error) throw wishRes.error;
       if (votesRes.error) throw votesRes.error;
       if (discRes.error) throw discRes.error;
+      if (profRes.error) throw profRes.error;
       set({
         places: (placesRes.data ?? []).map(placeFromRow),
         weekly: (weeklyRes.data as WeeklySnapshot | null) ?? null,
@@ -78,6 +88,8 @@ export const useStore = create<State>((set, get) => ({
         wishlist: (wishRes.data ?? []) as WishlistRow[],
         votes: (votesRes.data ?? []) as VoteRow[],
         discoveries: (discRes.data ?? []) as Discovery[],
+        profiles: (profRes.data ?? []) as Profile[],
+        me: meId,
         loading: false,
       });
     } catch (e: any) {
@@ -157,6 +169,49 @@ export const useStore = create<State>((set, get) => ({
   deleteDiscovery: async id => {
     await supabase.from('discoveries').delete().eq('id', id);
     await get().refresh();
+  },
+
+  updateProfile: async patch => {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return;
+    const existing = get().profiles.find(p => p.user_id === user.user!.id);
+    if (existing) {
+      await supabase
+        .from('profiles')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('user_id', user.user.id);
+    } else {
+      await supabase.from('profiles').insert({
+        user_id: user.user.id,
+        display_name: patch.display_name ?? user.user.email?.split('@')[0] ?? 'me',
+        emoji: patch.emoji ?? '😺',
+        color: patch.color ?? '#ff9a8b',
+      });
+    }
+    await get().refresh();
+  },
+
+  subscribe: () => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedRefresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => get().refresh(), 300);
+    };
+
+    const channel = supabase
+      .channel('shared-state')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wishlist' }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'weekend_votes' }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visits' }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'discoveries' }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_snapshots' }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, debouncedRefresh)
+      .subscribe();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
   },
 }));
 

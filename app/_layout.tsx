@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useLang } from '@/lib/i18n';
 import { theme } from '@/lib/theme';
+import { useStore } from '@/lib/store';
 import type { Session } from '@supabase/supabase-js';
 
 export default function RootLayout() {
@@ -13,6 +14,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const hydrate = useLang(s => s.hydrate);
+  const subscribe = useStore(s => s.subscribe);
 
   useEffect(() => {
     hydrate();
@@ -23,6 +25,12 @@ export default function RootLayout() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, [hydrate]);
+
+  useEffect(() => {
+    if (!session) return;
+    const unsub = subscribe();
+    return unsub;
+  }, [session, subscribe]);
 
   useEffect(() => {
     if (!ready) return;

@@ -81,6 +81,15 @@ export type WishlistRow = {
   created_at: string;
 };
 
+export type Profile = {
+  user_id: string;
+  display_name: string;
+  emoji: string;
+  color: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Discovery = {
   id: string;
   user_id: string;

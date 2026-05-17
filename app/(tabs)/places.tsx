@@ -5,13 +5,12 @@ import { useStore } from '@/lib/store';
 import { useLang, t, placeName } from '@/lib/i18n';
 import { theme } from '@/lib/theme';
 import { PlaceCard } from '@/components/cards/PlaceCard';
-import { supabase } from '@/lib/supabase';
+import { actorLabels } from '@/lib/people';
 
 export default function PlacesScreen() {
   const lang = useLang(s => s.lang);
-  const { places, wishlist, visits, discoveries, loading, refresh, toggleWish, addVisit, addDiscovery, deleteDiscovery } = useStore();
+  const { places, wishlist, visits, discoveries, profiles, me, loading, refresh, toggleWish, addVisit, addDiscovery, deleteDiscovery } = useStore();
   const [cityFilter, setCityFilter] = useState<string | null>(null);
-  const [me, setMe] = useState<string | null>(null);
 
   const [modalPlace, setModalPlace] = useState<string | null>(null);
   const [rating, setRating] = useState<number | null>(null);
@@ -25,7 +24,6 @@ export default function PlacesScreen() {
 
   useEffect(() => {
     refresh();
-    supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null));
   }, [refresh]);
 
   const cities = useMemo(() => Array.from(new Set(places.map(p => p.city))), [places]);
@@ -94,7 +92,7 @@ export default function PlacesScreen() {
                     <Text style={s.discCardMeta}>
                       {d.source ? `${d.source} · ` : ''}
                       {d.city ? `${d.city} · ` : ''}
-                      {new Date(d.created_at).toLocaleDateString()}
+                      {actorLabels([d.user_id], profiles, me)} · {new Date(d.created_at).toLocaleDateString()}
                     </Text>
                     {d.memo && <Text style={s.discCardMemo}>{d.memo}</Text>}
                     {d.url && (
@@ -136,6 +134,7 @@ export default function PlacesScreen() {
                 onWish={() => toggleWish(place.id)}
                 onMarkVisited={() => openMarkVisited(place.id)}
                 visitCount={visitCount}
+                wishActors={placeWish.length > 0 ? actorLabels(placeWish.map(w => w.user_id), profiles, me) : undefined}
               />
             );
           })}

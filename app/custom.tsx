@@ -11,7 +11,7 @@ import { customRecommend } from '@/lib/recommend';
 import { fetchClientWeather } from '@/lib/clientWeather';
 import { defaultFilters } from '@/lib/types';
 import type { CustomFilters, Category, WeatherDay, Recommendation } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { actorLabels } from '@/lib/people';
 
 const CATEGORIES: { value: Category; key: DictKey }[] = [
   { value: 'nature', key: 'catNature' },
@@ -40,17 +40,15 @@ const DATE_SCORE_OPTIONS = [0, 5, 7, 8, 9];
 export default function CustomScreen() {
   const lang = useLang(s => s.lang);
   const router = useRouter();
-  const { places, visits, wishlist, weekly, refresh, toggleWish, addVisit } = useStore();
+  const { places, visits, wishlist, weekly, profiles, me, refresh, toggleWish, addVisit } = useStore();
 
   const [filters, setFilters] = useState<CustomFilters>(defaultFilters());
   const [results, setResults] = useState<Recommendation[] | null>(null);
   const [adhocWeather, setAdhocWeather] = useState<WeatherDay[]>([]);
   const [busy, setBusy] = useState(false);
-  const [me, setMe] = useState<string | null>(null);
 
   useEffect(() => {
     refresh();
-    supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null));
   }, [refresh]);
 
   const cities = useMemo(() => Array.from(new Set(places.map(p => p.city))), [places]);
@@ -250,6 +248,7 @@ export default function CustomScreen() {
                       iWish={!!me && placeWish.some(w => w.user_id === me)}
                       onWish={() => toggleWish(place.id)}
                       onMarkVisited={() => addVisit(place.id, null, '')}
+                      wishActors={placeWish.length > 0 ? actorLabels(placeWish.map(w => w.user_id), profiles, me) : undefined}
                     />
                   );
                 })}

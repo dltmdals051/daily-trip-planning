@@ -5,15 +5,15 @@ import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { useLang, t } from '@/lib/i18n';
 import { theme, shadow } from '@/lib/theme';
+import { actorLabels } from '@/lib/people';
 import { WeatherCard } from '@/components/cards/WeatherCard';
 import { EventCard } from '@/components/cards/EventCard';
 import { PlaceCard } from '@/components/cards/PlaceCard';
-import { supabase } from '@/lib/supabase';
 
 export default function WeekendScreen() {
   const lang = useLang(s => s.lang);
   const router = useRouter();
-  const { places, weekly, votes, wishlist, loading, refresh, toggleVote, toggleWish } = useStore();
+  const { places, weekly, votes, wishlist, profiles, me, loading, refresh, toggleVote, toggleWish } = useStore();
 
   useEffect(() => {
     refresh();
@@ -135,7 +135,6 @@ export default function WeekendScreen() {
                   v => v.weekend_saturday === weekly.weekend_saturday && v.place_id === place.id,
                 );
                 const placeWish = wishlist.filter(w => w.place_id === place.id);
-                const me = supabaseUserIdSync();
                 return (
                   <PlaceCard
                     key={place.id}
@@ -151,6 +150,8 @@ export default function WeekendScreen() {
                     iWish={!!me && placeWish.some(w => w.user_id === me)}
                     onVote={() => toggleVote(place.id)}
                     onWish={() => toggleWish(place.id)}
+                    wishActors={placeWish.length > 0 ? actorLabels(placeWish.map(w => w.user_id), profiles, me) : undefined}
+                    voteActors={placeVotes.length > 0 ? actorLabels(placeVotes.map(v => v.user_id), profiles, me) : undefined}
                   />
                 );
               })}
@@ -179,17 +180,6 @@ function Empty({ text }: { text: string }) {
       <Text style={s.emptyText}>{text}</Text>
     </View>
   );
-}
-
-let _cachedUid: string | null = null;
-supabase.auth.getUser().then(({ data }) => {
-  _cachedUid = data.user?.id ?? null;
-});
-supabase.auth.onAuthStateChange((_e, session) => {
-  _cachedUid = session?.user.id ?? null;
-});
-function supabaseUserIdSync(): string | null {
-  return _cachedUid;
 }
 
 const s = StyleSheet.create({

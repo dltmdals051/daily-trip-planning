@@ -112,6 +112,12 @@ const dict = {
   discoveryCity: { ko: '도시 (선택)', zh: '城市(可选)' },
   discoveryMemo: { ko: '메모', zh: '备注' },
   openLink: { ko: '링크 열기', zh: '打开链接' },
+  profileLabel: { ko: '내 프로필', zh: '我的资料' },
+  nicknameLabel: { ko: '닉네임', zh: '昵称' },
+  emojiLabel: { ko: '이모지', zh: '表情' },
+  editProfile: { ko: '수정', zh: '编辑' },
+  bothLabel: { ko: '둘 다', zh: '两人' },
+  by: { ko: '· ', zh: '· ' },
 } as const;
 
 export type DictKey = keyof typeof dict;

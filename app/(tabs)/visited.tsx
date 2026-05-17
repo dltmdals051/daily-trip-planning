@@ -4,10 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/lib/store';
 import { useLang, t, placeName } from '@/lib/i18n';
 import { theme } from '@/lib/theme';
+import { displayLabel } from '@/lib/people';
 
 export default function VisitedScreen() {
   const lang = useLang(s => s.lang);
-  const { places, visits, loading, refresh, deleteVisit } = useStore();
+  const { places, visits, profiles, me, loading, refresh, deleteVisit } = useStore();
 
   useEffect(() => {
     refresh();
@@ -38,7 +39,7 @@ export default function VisitedScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={s.name}>{placeName(place, lang)}</Text>
                       <Text style={s.meta}>
-                        {v.visited_on} · {place.city}
+                        {v.visited_on} · {place.city} · {displayLabel(v.user_id, profiles, me)}
                       </Text>
                       {v.rating !== null && v.rating !== undefined && (
                         <Text style={s.rating}>{'★'.repeat(v.rating)}{'☆'.repeat(5 - v.rating)}</Text>

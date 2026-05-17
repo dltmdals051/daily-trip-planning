@@ -19,6 +19,8 @@ type Props = {
   onVote?: () => void;
   onMarkVisited?: () => void;
   visitCount?: number;
+  wishActors?: string;
+  voteActors?: string;
 };
 
 export function PlaceCard({
@@ -36,6 +38,8 @@ export function PlaceCard({
   onVote,
   onMarkVisited,
   visitCount,
+  wishActors,
+  voteActors,
 }: Props) {
   const lang = useLang(s => s.lang);
   return (
@@ -98,6 +102,14 @@ export function PlaceCard({
             </Text>
           ))}
         </View>
+      )}
+
+      {(wishActors || voteActors) && (
+        <Text style={s.actors}>
+          {wishActors ? `♥ ${wishActors}` : ''}
+          {wishActors && voteActors ? '   ·   ' : ''}
+          {voteActors ? `🗳 ${voteActors}` : ''}
+        </Text>
       )}
 
       <View style={s.actionRow}>
@@ -192,4 +204,5 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   tipText: { fontSize: 12, color: theme.warnInk, lineHeight: 17 },
+  actors: { fontSize: 11, color: theme.textDim, marginTop: 2 },
 });
