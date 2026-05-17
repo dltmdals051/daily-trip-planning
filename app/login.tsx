@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useLang, t } from '@/lib/i18n';
-import { theme } from '@/lib/theme';
+import { theme, shadow } from '@/lib/theme';
 
 type Step = 'email' | 'otp';
 
@@ -50,6 +50,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={s.root}>
       <View style={s.box}>
+        <Text style={s.emoji}>🌸</Text>
         <Text style={s.title}>{t('loginTitle', lang)}</Text>
         <Text style={s.sub}>
           {step === 'email' ? t('loginSub', lang) : (lang === 'ko' ? '메일로 받은 6자리 코드 입력' : '请输入邮箱收到的6位验证码')}
@@ -99,27 +100,30 @@ export default function LoginScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.bg, justifyContent: 'center', padding: 24 },
+  root: { flex: 1, backgroundColor: theme.bg, justifyContent: 'center', padding: 32 },
   box: { gap: 12 },
-  title: { fontSize: 22, fontWeight: '700', color: theme.text },
-  sub: { fontSize: 14, color: theme.textDim, marginBottom: 12 },
-  emailEcho: { fontSize: 13, color: theme.accentSoft },
+  emoji: { fontSize: 48, textAlign: 'center', marginBottom: 8 },
+  title: { fontSize: 22, fontWeight: '700', color: theme.text, textAlign: 'center' },
+  sub: { fontSize: 14, color: theme.textDim, marginBottom: 16, textAlign: 'center' },
+  emailEcho: { fontSize: 13, color: theme.accentDeep, fontWeight: '600', textAlign: 'center' },
   input: {
     backgroundColor: theme.card,
     borderColor: theme.border,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
     color: theme.text,
     fontSize: 15,
+    ...shadow.sm,
   },
   btn: {
-    backgroundColor: theme.accent,
+    backgroundColor: theme.accentDeep,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
+    ...shadow.glow,
   },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   linkText: { color: theme.textDim, fontSize: 12, textAlign: 'center', marginTop: 4 },
-  err: { color: theme.bad, fontSize: 13, marginTop: 8 },
+  err: { color: theme.badInk, fontSize: 13, marginTop: 8, textAlign: 'center' },
 });

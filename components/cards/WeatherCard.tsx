@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import type { WeatherDay } from '@/lib/types';
-import { theme } from '@/lib/theme';
+import { theme, shadow } from '@/lib/theme';
 import { useLang, t } from '@/lib/i18n';
 
 export function WeatherCard({ w }: { w: WeatherDay }) {
@@ -27,10 +27,11 @@ const s = StyleSheet.create({
   card: {
     backgroundColor: theme.card,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     flex: 1,
     minWidth: 150,
+    ...shadow.sm,
   },
   date: { fontSize: 13, color: theme.textDim },
   temp: { fontSize: 22, fontWeight: '600', color: theme.text, marginVertical: 4 },

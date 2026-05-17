@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import type { Place } from '@/lib/types';
-import { theme } from '@/lib/theme';
+import { theme, shadow } from '@/lib/theme';
 import { useLang, t, placeName } from '@/lib/i18n';
 import { openDirections, sharePlace } from '@/lib/share';
 
@@ -49,12 +49,12 @@ export function PlaceCard({
           </View>
         )}
         {bothWish && (
-          <View style={[s.rankPill, { backgroundColor: theme.good }]}>
+          <View style={[s.rankPill, { backgroundColor: theme.goodDeep }]}>
             <Text style={s.rankText}>♥♥ {t('wantedByBoth', lang)}</Text>
           </View>
         )}
         {bothVote && (
-          <View style={[s.rankPill, { backgroundColor: theme.accent }]}>
+          <View style={[s.rankPill, { backgroundColor: theme.accentDeep }]}>
             <Text style={s.rankText}>🗳 합의</Text>
           </View>
         )}
@@ -79,12 +79,16 @@ export function PlaceCard({
           {t('date', lang)} {place.dateScore}/10
         </Text>
         {visitCount !== undefined && visitCount > 0 && (
-          <Text style={[s.metaPill, { backgroundColor: theme.good, color: '#000' }]}>✓ ×{visitCount}</Text>
+          <Text style={[s.metaPill, { backgroundColor: theme.good, color: theme.goodInk, borderColor: theme.good }]}>✓ ×{visitCount}</Text>
         )}
       </View>
 
       <Text style={s.notes}>{place.notes}</Text>
-      {place.tips && <Text style={[s.notes, { color: theme.accentSoft }]}>💡 {place.tips}</Text>}
+      {place.tips && (
+        <View style={s.tipBox}>
+          <Text style={s.tipText}>💡 {place.tips}</Text>
+        </View>
+      )}
 
       {reasons && reasons.length > 0 && (
         <View style={s.reasons}>
@@ -133,45 +137,59 @@ const s = StyleSheet.create({
     backgroundColor: theme.card,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     gap: 8,
+    ...shadow.sm,
   },
   headerRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   rankPill: {
     backgroundColor: theme.accent,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: 999,
   },
-  rankText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  rankText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
   nameMain: { fontSize: 16, fontWeight: '700', color: theme.text },
   nameSub: { fontSize: 13, color: theme.textDim },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   metaPill: {
-    backgroundColor: theme.border,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    fontSize: 11,
+    backgroundColor: theme.cardSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    fontSize: 10,
     color: theme.textDim,
+    fontWeight: '500',
+    overflow: 'hidden',
   },
-  notes: { fontSize: 13, color: theme.text },
+  notes: { fontSize: 13, color: theme.text, lineHeight: 19 },
   reasons: {
     borderTopWidth: 1,
     borderTopColor: theme.border,
     borderStyle: 'dashed',
     paddingTop: 8,
   },
-  reasonText: { fontSize: 12, color: theme.textDim },
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  reasonText: { fontSize: 12, color: theme.textDim, lineHeight: 17 },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   action: {
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: theme.border,
+    backgroundColor: theme.card,
   },
   actionOn: { backgroundColor: theme.accent, borderColor: theme.accent },
-  actionText: { fontSize: 12, color: theme.text },
+  actionText: { fontSize: 11, color: theme.text, fontWeight: '500' },
+  tipBox: {
+    backgroundColor: '#fff8ea',
+    borderRadius: 8,
+    padding: 8,
+    paddingHorizontal: 10,
+    marginTop: 4,
+  },
+  tipText: { fontSize: 12, color: theme.warnInk, lineHeight: 17 },
 });

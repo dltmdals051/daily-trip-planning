@@ -5,10 +5,10 @@
     "scheme": "wuxiweekend",
     "version": "0.2.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "backgroundColor": "#0f1216",
+      "backgroundColor": "#fdf6f0",
       "resizeMode": "contain"
     },
     "ios": {
@@ -21,7 +21,7 @@
     "android": {
       "package": "com.wuxiweekend.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0f1216"
+        "backgroundColor": "#fdf6f0"
       }
     },
     "web": {

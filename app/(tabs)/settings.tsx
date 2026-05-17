@@ -75,10 +75,11 @@ const s = StyleSheet.create({
   signOut: {
     marginTop: 20,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.bad,
     alignItems: 'center',
+    backgroundColor: theme.cardSoft,
   },
-  signOutText: { color: theme.bad, fontSize: 14, fontWeight: '600' },
+  signOutText: { color: theme.badInk, fontSize: 14, fontWeight: '600' },
 });

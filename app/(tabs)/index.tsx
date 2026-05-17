@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { useLang, t } from '@/lib/i18n';
-import { theme } from '@/lib/theme';
+import { theme, shadow } from '@/lib/theme';
 import { WeatherCard } from '@/components/cards/WeatherCard';
 import { EventCard } from '@/components/cards/EventCard';
 import { PlaceCard } from '@/components/cards/PlaceCard';
@@ -84,13 +84,13 @@ export default function WeekendScreen() {
             )}
             {wishConsensus.length > 0 && (
               <>
-                <Text style={[s.consensusTitle, { marginTop: voteConsensus.length > 0 ? 12 : 0 }]}>
+                <Text style={[s.consensusTitle, { marginTop: voteConsensus.length > 0 ? 14 : 0 }]}>
                   ♥♥ {t('consensusTitle', lang)}
                 </Text>
                 <View style={s.consensusRow}>
                   {wishConsensus.map(p => (
-                    <View key={p.id} style={[s.consensusPill, { backgroundColor: theme.good }]}>
-                      <Text style={[s.consensusPillText, { color: '#000' }]}>
+                    <View key={p.id} style={[s.consensusPill, { backgroundColor: theme.goodDeep }]}>
+                      <Text style={s.consensusPillText}>
                         {lang === 'ko' ? p.nameKo : p.nameZh}
                       </Text>
                     </View>
@@ -197,7 +197,7 @@ const s = StyleSheet.create({
   hero: { marginBottom: 24 },
   h1: { fontSize: 24, fontWeight: '700', color: theme.text, marginBottom: 4 },
   sub: { fontSize: 12, color: theme.textDim },
-  h2: { fontSize: 16, fontWeight: '600', color: theme.accentSoft, marginBottom: 10 },
+  h2: { fontSize: 13, fontWeight: '700', color: theme.accentDeep, marginBottom: 10, letterSpacing: 0.4 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   empty: {
     backgroundColor: theme.card,
@@ -209,30 +209,38 @@ const s = StyleSheet.create({
   },
   emptyText: { color: theme.textDim, fontSize: 13, textAlign: 'center' },
   consensusBox: {
-    backgroundColor: theme.card,
+    backgroundColor: theme.cardSoft,
     borderWidth: 1,
     borderColor: theme.accent,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 18,
+    padding: 16,
     marginBottom: 24,
+    ...shadow.sm,
   },
-  consensusTitle: { fontSize: 13, fontWeight: '700', color: theme.accentSoft, marginBottom: 8 },
+  consensusTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.accentDeep,
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
   consensusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   consensusPill: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 999,
   },
   consensusPillText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   customCta: {
-    backgroundColor: theme.card,
-    borderWidth: 1,
+    backgroundColor: theme.cardSoft,
+    borderWidth: 1.5,
     borderColor: theme.accent,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     marginTop: 20,
     marginBottom: 16,
+    ...shadow.sm,
   },
-  customCtaText: { fontSize: 15, fontWeight: '700', color: theme.accent, marginBottom: 2 },
+  customCtaText: { fontSize: 15, fontWeight: '700', color: theme.accentDeep, marginBottom: 4 },
   customCtaSub: { fontSize: 11, color: theme.textDim },
 });

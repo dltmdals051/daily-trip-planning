@@ -14,9 +14,18 @@ export default function TabsLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: theme.bg },
         headerTitleStyle: { color: theme.text },
-        tabBarStyle: { backgroundColor: theme.card, borderTopColor: theme.border },
-        tabBarActiveTintColor: theme.accent,
+        tabBarStyle: {
+          backgroundColor: theme.card,
+          borderTopColor: theme.border,
+          shadowColor: '#a0826e',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+        tabBarActiveTintColor: theme.accentDeep,
         tabBarInactiveTintColor: theme.textDim,
+        tabBarLabelStyle: { fontWeight: '600' },
       }}
     >
       <Tabs.Screen

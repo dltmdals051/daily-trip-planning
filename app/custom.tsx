@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { useLang, t, type DictKey } from '@/lib/i18n';
-import { theme } from '@/lib/theme';
+import { theme, shadow } from '@/lib/theme';
 import { PlaceCard } from '@/components/cards/PlaceCard';
 import { WeatherCard } from '@/components/cards/WeatherCard';
 import { customRecommend } from '@/lib/recommend';
@@ -200,17 +200,22 @@ export default function CustomScreen() {
 
         {/* 버튼 */}
         <View style={s.btnRow}>
-          <TouchableOpacity style={[s.btn, { flex: 1, backgroundColor: theme.accent }]} onPress={generate} disabled={busy}>
+          <TouchableOpacity style={[s.btn, s.btnPrimary]} onPress={generate} disabled={busy}>
             <Text style={[s.btnText, { color: '#fff' }]}>{busy ? '...' : t('generateBtn', lang)}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.btn, { backgroundColor: theme.border }]} onPress={reset}>
-            <Text style={s.btnText}>{t('resetBtn', lang)}</Text>
+          <TouchableOpacity style={[s.btn, s.btnSecondary]} onPress={reset}>
+            <Text style={[s.btnText, { color: theme.textDim }]}>{t('resetBtn', lang)}</Text>
           </TouchableOpacity>
         </View>
 
         {/* 결과 */}
         {results !== null && (
           <View style={{ marginTop: 24 }}>
+            <View style={s.filterSummary}>
+              <Text style={s.filterSummaryText}>
+                📋 {summarizeFilters(filters, lang)}
+              </Text>
+            </View>
             <Text style={s.h2}>
               {t('resultsTitle', lang)} ({results.length})
             </Text>
@@ -255,6 +260,32 @@ export default function CustomScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function summarizeFilters(f: CustomFilters, lang: 'ko' | 'zh'): string {
+  const parts: string[] = [];
+  if (f.cities.length > 0) parts.push(f.cities.join('·'));
+  if (f.categories.length > 0) {
+    const map: Record<string, { ko: string; zh: string }> = {
+      'nature': { ko: '자연', zh: '自然' },
+      'culture': { ko: '문화', zh: '文化' },
+      'food': { ko: '먹거리', zh: '美食' },
+      'shopping': { ko: '쇼핑', zh: '购物' },
+      'date': { ko: '데이트', zh: '约会' },
+      'ancient-town': { ko: '고진', zh: '古镇' },
+      'museum': { ko: '박물관', zh: '博物馆' },
+      'park': { ko: '공원', zh: '公园' },
+      'temple': { ko: '사찰', zh: '寺庙' },
+      'theme-park': { ko: '테마파크', zh: '主题公园' },
+      'water-town': { ko: '수향', zh: '水乡' },
+    };
+    parts.push(f.categories.map(c => map[c]?.[lang] ?? c).join('·'));
+  }
+  if (f.costs.length > 0) parts.push(f.costs.join('·'));
+  if (f.maxTravelMinutes !== null) parts.push(`${lang === 'ko' ? '편도' : '单程'} ${f.maxTravelMinutes}${lang === 'ko' ? '분 이내' : '分钟以内'}`);
+  if (f.weather !== 'any') parts.push(f.weather === 'indoor' ? (lang === 'ko' ? '실내' : '室内') : (lang === 'ko' ? '야외' : '户外'));
+  if (f.minDateScore > 0) parts.push(`${lang === 'ko' ? '데이트' : '约会'} ${f.minDateScore}+`);
+  return parts.length > 0 ? parts.join(' · ') : (lang === 'ko' ? '필터 없음' : '无筛选');
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -324,8 +355,16 @@ const s = StyleSheet.create({
     borderColor: theme.border,
     backgroundColor: theme.card,
   },
-  chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
-  chipText: { fontSize: 12, color: theme.textDim },
+  chipActive: {
+    backgroundColor: theme.accent,
+    borderColor: theme.accent,
+    shadowColor: '#ff9a8b',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  chipText: { fontSize: 12, color: theme.textDim, fontWeight: '500' },
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -341,12 +380,14 @@ const s = StyleSheet.create({
   btnRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   btn: {
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     paddingHorizontal: 18,
   },
+  btnPrimary: { flex: 1, backgroundColor: theme.accentDeep, ...shadow.glow },
+  btnSecondary: { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border },
   btnText: { fontSize: 14, fontWeight: '700', color: theme.text },
-  h2: { fontSize: 16, fontWeight: '700', color: theme.accentSoft, marginBottom: 12 },
+  h2: { fontSize: 13, fontWeight: '700', color: theme.accentDeep, marginBottom: 12, letterSpacing: 0.4 },
   empty: {
     backgroundColor: theme.card,
     borderWidth: 1,
@@ -356,4 +397,17 @@ const s = StyleSheet.create({
     padding: 16,
   },
   emptyText: { color: theme.textDim, fontSize: 13, textAlign: 'center' },
+  filterSummary: {
+    backgroundColor: theme.cardSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  filterSummaryText: {
+    fontSize: 11,
+    color: theme.textDim,
+    lineHeight: 17,
+  },
 });

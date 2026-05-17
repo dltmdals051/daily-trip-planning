@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import type { EventItem } from '@/lib/types';
-import { theme } from '@/lib/theme';
+import { theme, shadow } from '@/lib/theme';
 
 export function EventCard({ e }: { e: EventItem }) {
   return (
@@ -24,9 +24,10 @@ const s = StyleSheet.create({
     backgroundColor: theme.card,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 14,
+    padding: 14,
     gap: 4,
+    ...shadow.sm,
   },
   meta: { fontSize: 12, color: theme.textDim },
   title: { fontSize: 15, fontWeight: '600', color: theme.text },
