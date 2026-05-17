@@ -14,7 +14,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^2.3.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@supabase/supabase-js": "^2.45.4",
     "expo": "~51.0.28",
@@ -37,6 +36,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.7",
+    "@google/genai": "^2.3.0",
     "@types/node": "^20.14.10",
     "@types/react": "~18.2.79",
     "sharp": "^0.34.5",

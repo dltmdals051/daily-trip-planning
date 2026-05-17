@@ -25,8 +25,9 @@ const SYSTEM = `너는 중국 우시(无锡)에 사는 한국인 + 산동 출신
 3. 공식 관광청, 위키피디아
 
 이미지 우선순위 (imageUrl):
-- upload.wikimedia.org (Wikipedia Commons) — 최우선
-- bkimg.cdn.bcebos.com (Baidu Baike CDN)
+- bkimg.cdn.bcebos.com (Baidu Baike CDN) — **중국에서 접속 가능, 최우선**
+- img.lvmama.com / dimg04.c-ctrip.com (Ctrip)
+- upload.wikimedia.org (Wikipedia Commons) — 폴백 (중국에서 막힐 수 있음)
 - 직접 hot-link 가능한 .jpg/.png/.webp URL`;
 
 function buildPrompt(weather: WeatherDay[], startStr: string, endStr: string): string {
