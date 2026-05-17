@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { useLang, t } from '@/lib/i18n';
-import { theme, shadow } from '@/lib/theme';
+import { theme, shadow, gradient, radius, typography } from '@/lib/theme';
 
 function getRedirectUrl(): string | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -41,90 +42,160 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={s.root}>
-      <View style={s.box}>
-        <Text style={s.emoji}>🌸</Text>
-        <Text style={s.title}>{t('loginTitle', lang)}</Text>
-        <Text style={s.sub}>
-          {sent
-            ? (lang === 'ko' ? '메일에서 "Sign in" 링크 클릭하면 자동 로그인' : '点击邮件中的 "Sign in" 链接即可登录')
-            : t('loginSub', lang)}
-        </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={s.root}
+      >
+        {/* Top decorative gradient */}
+        <LinearGradient
+          colors={gradient.hero}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.heroOrb}
+          pointerEvents="none"
+        />
 
-        {!sent ? (
-          <>
-            <TextInput
-              style={s.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder={t('emailPlaceholder', lang)}
-              placeholderTextColor={theme.textDim}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity style={s.btn} onPress={sendLink} disabled={busy}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>{t('sendMagic', lang)}</Text>}
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <View style={s.sentBox}>
-              <Text style={s.sentEmoji}>📬</Text>
-              <Text style={s.sentEmail}>{email}</Text>
-              <Text style={s.sentHint}>
-                {lang === 'ko' ? '메일함 (스팸함도) 확인' : '请查看邮箱 (含垃圾邮件)'}
-              </Text>
+        <View style={s.card}>
+          <Text style={s.bigEmoji}>🌸</Text>
+          <Text style={s.brand}>{lang === 'ko' ? '우시 주말' : '无锡周末'}</Text>
+          <Text style={s.title}>{t('loginTitle', lang)}</Text>
+          <Text style={s.sub}>
+            {sent
+              ? (lang === 'ko' ? '메일에서 "Sign in" 링크 클릭하면 자동 로그인' : '点击邮件中的 "Sign in" 链接即可登录')
+              : t('loginSub', lang)}
+          </Text>
+
+          {!sent ? (
+            <>
+              <TextInput
+                style={s.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder={t('emailPlaceholder', lang)}
+                placeholderTextColor={theme.textDim}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={[s.btn, !email && s.btnDisabled]}
+                onPress={sendLink}
+                disabled={busy || !email}
+                activeOpacity={0.85}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={s.btnText}>{t('sendMagic', lang)}</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={s.sentBox}>
+                <Text style={s.sentEmoji}>📬</Text>
+                <Text style={s.sentEmail}>{email}</Text>
+                <Text style={s.sentHint}>
+                  {lang === 'ko' ? '메일함 (스팸함도) 확인' : '请查看邮箱 (含垃圾邮件)'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => { setSent(false); setErrMsg(null); }}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              >
+                <Text style={s.linkText}>
+                  {lang === 'ko' ? '← 이메일 다시 입력' : '← 重新输入邮箱'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {errMsg && (
+            <View style={s.errBox}>
+              <Text style={s.err}>⚠️ {errMsg}</Text>
             </View>
-            <TouchableOpacity onPress={() => { setSent(false); setErrMsg(null); }}>
-              <Text style={s.linkText}>{lang === 'ko' ? '← 이메일 다시 입력' : '← 重新输入邮箱'}</Text>
-            </TouchableOpacity>
-          </>
-        )}
+          )}
+        </View>
 
-        {errMsg && <Text style={s.err}>{errMsg}</Text>}
-      </View>
+        <Text style={s.footer}>
+          {lang === 'ko' ? '둘만 들어오는 사적인 공간 ✨' : '只属于我们两人的小空间 ✨'}
+        </Text>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.bg, justifyContent: 'center', padding: 32 },
-  box: { gap: 12 },
-  emoji: { fontSize: 48, textAlign: 'center', marginBottom: 8 },
-  title: { fontSize: 22, fontWeight: '700', color: theme.text, textAlign: 'center' },
-  sub: { fontSize: 14, color: theme.textDim, marginBottom: 16, textAlign: 'center' },
-  input: {
+  root: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  heroOrb: {
+    position: 'absolute',
+    top: -120,
+    right: -120,
+    width: 320,
+    height: 320,
+    borderRadius: 999,
+    opacity: 0.7,
+  },
+  card: {
     backgroundColor: theme.card,
+    borderRadius: radius.xl,
+    padding: 28,
+    gap: 12,
+    ...shadow.lg,
+  },
+  bigEmoji: { fontSize: 56, textAlign: 'center', marginBottom: 4 },
+  brand: { ...typography.section, color: theme.accentDeep, textAlign: 'center', fontSize: 11 },
+  title: { ...typography.h1, color: theme.text, textAlign: 'center', marginTop: 2 },
+  sub: { fontSize: 13, color: theme.textDim, marginBottom: 12, textAlign: 'center', lineHeight: 19 },
+  input: {
+    backgroundColor: theme.cardSoft,
     borderColor: theme.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.md,
     padding: 14,
     color: theme.text,
     fontSize: 15,
-    ...shadow.sm,
   },
   btn: {
     backgroundColor: theme.accentDeep,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 15,
+    borderRadius: radius.md,
     alignItems: 'center',
     ...shadow.glow,
   },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  linkText: { color: theme.textDim, fontSize: 12, textAlign: 'center', marginTop: 4 },
+  btnDisabled: { opacity: 0.4, shadowOpacity: 0 },
+  btnText: { color: '#fff', fontWeight: '800', fontSize: 15, letterSpacing: 0.2 },
+  linkText: { color: theme.textDim, fontSize: 12, textAlign: 'center', marginTop: 6, fontWeight: '600' },
   sentBox: {
-    backgroundColor: theme.card,
-    borderColor: theme.border,
+    backgroundColor: theme.cardSoft,
+    borderColor: theme.borderSoft,
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 24,
+    borderRadius: radius.md,
+    padding: 28,
     alignItems: 'center',
-    gap: 8,
-    ...shadow.sm,
+    gap: 10,
   },
-  sentEmoji: { fontSize: 40 },
-  sentEmail: { fontSize: 15, fontWeight: '700', color: theme.accentDeep },
-  sentHint: { fontSize: 13, color: theme.textDim },
-  err: { color: theme.badInk, fontSize: 13, marginTop: 8, textAlign: 'center' },
+  sentEmoji: { fontSize: 42 },
+  sentEmail: { fontSize: 15, fontWeight: '800', color: theme.accentDeep },
+  sentHint: { fontSize: 12, color: theme.textDim, textAlign: 'center' },
+  errBox: {
+    backgroundColor: '#fff0f0',
+    borderColor: theme.bad,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 10,
+    marginTop: 4,
+  },
+  err: { color: theme.badInk, fontSize: 12, textAlign: 'center', fontWeight: '600' },
+  footer: {
+    ...typography.micro,
+    color: theme.textDim,
+    textAlign: 'center',
+    marginTop: 24,
+  },
 });
