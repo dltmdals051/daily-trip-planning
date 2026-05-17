@@ -1,7 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform, Share } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform, Share, Image } from 'react-native';
 import type { AIPlace } from '@/lib/types';
 import { theme, shadow } from '@/lib/theme';
 import { useLang } from '@/lib/i18n';
+import { sourceDomain } from '@/lib/aiRecommend';
 
 const WUXI = { lat: 31.4912, lng: 120.3119 };
 
@@ -47,71 +49,89 @@ type Props = {
 
 export function AIPlaceCard({ place, rank, onSave, saved }: Props) {
   const lang = useLang(s => s.lang);
+  const [imgFailed, setImgFailed] = useState(false);
   const displayName = lang === 'ko' ? place.nameKo : place.nameZh;
   const subName = lang === 'ko' ? place.nameZh : place.nameKo;
+  const source = sourceDomain(place.sourceUrl);
+  const showImage = place.imageUrl && !imgFailed;
 
   return (
     <View style={s.card}>
-      <View style={s.headerRow}>
-        {rank !== undefined && (
-          <View style={s.rankPill}>
-            <Text style={s.rankText}>#{rank}</Text>
+      {showImage && (
+        <Image
+          source={{ uri: place.imageUrl! }}
+          style={s.hero}
+          onError={() => setImgFailed(true)}
+          resizeMode="cover"
+        />
+      )}
+      <View style={s.body}>
+        <View style={s.headerRow}>
+          {rank !== undefined && (
+            <View style={s.rankPill}>
+              <Text style={s.rankText}>#{rank}</Text>
+            </View>
+          )}
+          <View style={s.aiPill}>
+            <Text style={s.aiPillText}>🤖 AI 검색</Text>
+          </View>
+          {source && (
+            <View style={s.sourcePill}>
+              <Text style={s.sourcePillText}>{source}</Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={s.name}>{displayName}</Text>
+        <Text style={s.sub}>
+          {subName} · {place.city}
+        </Text>
+
+        <View style={s.metaRow}>
+          {place.travelMinutesFromWuxi !== undefined && (
+            <Text style={s.metaPill}>
+              🚗 {place.travelMinutesFromWuxi}{lang === 'ko' ? '분' : '分钟'}
+            </Text>
+          )}
+          {place.estimatedCost && <Text style={s.metaPill}>💰 {place.estimatedCost}</Text>}
+          {place.suggestedHours && (
+            <Text style={s.metaPill}>
+              ⏱ {place.suggestedHours[0]}~{place.suggestedHours[1]}
+              {lang === 'ko' ? '시간' : '小时'}
+            </Text>
+          )}
+          <Text style={s.metaPill}>{place.category}</Text>
+        </View>
+
+        <Text style={s.why}>{place.why}</Text>
+
+        {place.tips && (
+          <View style={s.tipBox}>
+            <Text style={s.tipText}>💡 {place.tips}</Text>
           </View>
         )}
-        <View style={s.aiPill}>
-          <Text style={s.aiPillText}>🤖 AI 검색</Text>
-        </View>
-      </View>
 
-      <Text style={s.name}>{displayName}</Text>
-      <Text style={s.sub}>
-        {subName} · {place.city}
-      </Text>
-
-      <View style={s.metaRow}>
-        {place.travelMinutesFromWuxi !== undefined && (
-          <Text style={s.metaPill}>
-            🚗 {place.travelMinutesFromWuxi}{lang === 'ko' ? '분' : '分钟'}
-          </Text>
-        )}
-        {place.estimatedCost && <Text style={s.metaPill}>💰 {place.estimatedCost}</Text>}
-        {place.suggestedHours && (
-          <Text style={s.metaPill}>
-            ⏱ {place.suggestedHours[0]}~{place.suggestedHours[1]}
-            {lang === 'ko' ? '시간' : '小时'}
-          </Text>
-        )}
-        <Text style={s.metaPill}>{place.category}</Text>
-      </View>
-
-      <Text style={s.why}>{place.why}</Text>
-
-      {place.tips && (
-        <View style={s.tipBox}>
-          <Text style={s.tipText}>💡 {place.tips}</Text>
-        </View>
-      )}
-
-      <View style={s.actionRow}>
-        <TouchableOpacity style={s.action} onPress={() => openAmap(place)}>
-          <Text style={s.actionText}>🧭 {lang === 'ko' ? '길찾기' : '导航'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.action} onPress={() => shareAI(place, lang === 'zh')}>
-          <Text style={s.actionText}>↗ {lang === 'ko' ? '공유' : '分享'}</Text>
-        </TouchableOpacity>
-        {place.sourceUrl && (
-          <TouchableOpacity style={s.action} onPress={() => Linking.openURL(place.sourceUrl!).catch(() => {})}>
-            <Text style={s.actionText}>🔗 {lang === 'ko' ? '출처' : '来源'}</Text>
+        <View style={s.actionRow}>
+          <TouchableOpacity style={s.action} onPress={() => openAmap(place)}>
+            <Text style={s.actionText}>🧭 {lang === 'ko' ? '길찾기' : '导航'}</Text>
           </TouchableOpacity>
-        )}
-        {onSave && (
-          <TouchableOpacity style={[s.action, saved && s.actionOn]} onPress={onSave} disabled={saved}>
-            <Text style={[s.actionText, saved && { color: '#fff' }]}>
-              {saved ? '✓ ' : '🔖 '}
-              {lang === 'ko' ? (saved ? '저장됨' : '발견에 저장') : (saved ? '已保存' : '保存到发现')}
-            </Text>
+          <TouchableOpacity style={s.action} onPress={() => shareAI(place, lang === 'zh')}>
+            <Text style={s.actionText}>↗ {lang === 'ko' ? '공유' : '分享'}</Text>
           </TouchableOpacity>
-        )}
+          {place.sourceUrl && (
+            <TouchableOpacity style={s.action} onPress={() => Linking.openURL(place.sourceUrl!).catch(() => {})}>
+              <Text style={s.actionText}>🔗 {source ?? (lang === 'ko' ? '출처' : '来源')}</Text>
+            </TouchableOpacity>
+          )}
+          {onSave && (
+            <TouchableOpacity style={[s.action, saved && s.actionOn]} onPress={onSave} disabled={saved}>
+              <Text style={[s.actionText, saved && { color: '#fff' }]}>
+                {saved ? '✓ ' : '🔖 '}
+                {lang === 'ko' ? (saved ? '저장됨' : '발견에 저장') : (saved ? '已保存' : '保存到发现')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -123,10 +143,15 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     borderRadius: 16,
-    padding: 16,
-    gap: 8,
+    overflow: 'hidden',
     ...shadow.sm,
   },
+  hero: {
+    width: '100%',
+    height: 180,
+    backgroundColor: theme.cardSoft,
+  },
+  body: { padding: 16, gap: 8 },
   headerRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   rankPill: {
     backgroundColor: theme.accent,
@@ -142,6 +167,13 @@ const s = StyleSheet.create({
     borderRadius: 999,
   },
   aiPillText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
+  sourcePill: {
+    backgroundColor: theme.good,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  sourcePillText: { color: theme.goodInk, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
   name: { fontSize: 16, fontWeight: '700', color: theme.text },
   sub: { fontSize: 13, color: theme.textDim },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },

@@ -146,6 +146,7 @@ export type AIPlace = {
   suggestedHours?: [number, number];
   navigationKeyword?: string;
   sourceUrl?: string;
+  imageUrl?: string;
   tips?: string;
 };
 
