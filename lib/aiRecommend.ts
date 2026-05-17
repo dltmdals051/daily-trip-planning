@@ -126,15 +126,58 @@ export async function aiRecommend(
 }
 
 async function enrichWithWikiImage(p: AIPlace): Promise<AIPlace> {
-  // Gemini 가 채워준 imageUrl 이 있으면 그대로 사용 (실패는 카드 onError 가 잡음).
-  if (p.imageUrl) return p;
-  // 1차: zh 위키 검색으로 정확한 페이지 찾고 → 그 페이지 대표 이미지
-  let img = await fetchWikiImage(p.nameZh);
-  // 2차: Wikimedia Commons 이미지 검색 (장소명 + 도시)
-  if (!img) img = await fetchCommonsImage(`${p.nameZh} ${p.city}`);
-  // 3차: Commons 에서 장소명만
-  if (!img) img = await fetchCommonsImage(p.nameZh);
-  return img ? { ...p, imageUrl: img } : p;
+  // 항상 Wiki/Commons 부터 시도 (Gemini 의 imageUrl 은 자주 broken/hot-link 차단).
+  // 셋 다 실패해야 Gemini 가 준 거 fallback 으로.
+  let img: string | undefined;
+  let stage = '';
+
+  img = await fetchWikiImage(p.nameZh);
+  if (img) stage = 'wiki';
+
+  if (!img) {
+    img = await fetchPageImagesThumb(p.nameZh);
+    if (img) stage = 'pageimages';
+  }
+  if (!img) {
+    img = await fetchCommonsImage(`${p.nameZh} ${p.city}`);
+    if (img) stage = 'commons-city';
+  }
+  if (!img) {
+    img = await fetchCommonsImage(p.nameZh);
+    if (img) stage = 'commons-only';
+  }
+  if (!img && p.imageUrl) {
+    img = p.imageUrl;
+    stage = 'gemini';
+  }
+
+  if (typeof window !== 'undefined') {
+    console.log(`[image] ${p.nameZh} → ${stage || 'NONE'}:`, img);
+  }
+  return img ? { ...p, imageUrl: img } : { ...p, imageUrl: undefined };
+}
+
+async function fetchPageImagesThumb(title: string): Promise<string | undefined> {
+  if (!title) return undefined;
+  try {
+    const url =
+      `https://zh.wikipedia.org/w/api.php?action=query&format=json&origin=*` +
+      `&prop=pageimages&pithumbsize=800&titles=${encodeURIComponent(title)}`;
+    const res = await fetch(url);
+    if (!res.ok) return undefined;
+    const json = (await res.json()) as {
+      query?: { pages?: Record<string, { thumbnail?: { source?: string } }> };
+    };
+    const pages = json.query?.pages;
+    if (!pages) return undefined;
+    for (const k of Object.keys(pages)) {
+      const src = pages[k]?.thumbnail?.source;
+      if (src) return src;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function fetchWikiImage(title: string): Promise<string | undefined> {
