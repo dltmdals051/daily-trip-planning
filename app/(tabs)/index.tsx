@@ -1,61 +1,52 @@
 import { useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { useLang, t } from '@/lib/i18n';
 import { theme, shadow, gradient, radius, typography } from '@/lib/theme';
-import { actorLabels } from '@/lib/people';
 import { WeatherCard } from '@/components/cards/WeatherCard';
 import { EventCard } from '@/components/cards/EventCard';
-import { PlaceCard } from '@/components/cards/PlaceCard';
+import { AIPlaceCard } from '@/components/cards/AIPlaceCard';
 
 export default function WeekendScreen() {
   const lang = useLang(s => s.lang);
   const router = useRouter();
-  const { places, weekly, votes, wishlist, profiles, me, loading, refresh, toggleVote, toggleWish } = useStore();
+  const { discoveries, addDiscovery, weekendData, weekendLoading, refreshWeekend, refresh } = useStore();
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    refreshWeekend();
+  }, [refresh, refreshWeekend]);
 
-  const placesById = Object.fromEntries(places.map(p => [p.id, p]));
+  const start = weekendData ? new Date(weekendData.startDate + 'T00:00:00') : null;
+  const end = weekendData ? new Date(weekendData.endDate + 'T00:00:00') : null;
 
-  const wishConsensus = (() => {
-    const byPlace = new Map<string, Set<string>>();
-    for (const w of wishlist) {
-      if (!byPlace.has(w.place_id)) byPlace.set(w.place_id, new Set());
-      byPlace.get(w.place_id)!.add(w.user_id);
-    }
-    return Array.from(byPlace.entries())
-      .filter(([, users]) => users.size >= 2)
-      .map(([id]) => placesById[id])
-      .filter(Boolean);
-  })();
+  const savedTitles = new Set(discoveries.map(d => d.title.trim().toLowerCase()));
 
-  const voteConsensus = weekly
-    ? (() => {
-        const byPlace = new Map<string, Set<string>>();
-        for (const v of votes.filter(v => v.weekend_saturday === weekly.weekend_saturday)) {
-          if (!byPlace.has(v.place_id)) byPlace.set(v.place_id, new Set());
-          byPlace.get(v.place_id)!.add(v.user_id);
-        }
-        return Array.from(byPlace.entries())
-          .filter(([, users]) => users.size >= 2)
-          .map(([id]) => placesById[id])
-          .filter(Boolean);
-      })()
-    : [];
-
-  const sat = weekly ? new Date(weekly.weekend_saturday) : null;
-  const sun = weekly ? new Date(weekly.weekend_sunday) : null;
+  async function saveToDiscovery(p: typeof weekendData extends null ? never : NonNullable<typeof weekendData>['recommendations'][number]) {
+    await addDiscovery({
+      title: `${p.nameKo} (${p.nameZh})`,
+      url: p.sourceUrl,
+      city: p.city,
+      category: p.category,
+      memo: p.why + (p.tips ? `\n💡 ${p.tips}` : ''),
+      source: 'AI',
+    });
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['left', 'right', 'top']}>
       <ScrollView
         contentContainerStyle={s.content}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.text} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={weekendLoading}
+            onRefresh={() => refreshWeekend(true)}
+            tintColor={theme.text}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
         {/* Hero */}
@@ -65,29 +56,42 @@ export default function WeekendScreen() {
           end={{ x: 1, y: 1 }}
           style={s.hero}
         >
-          <Text style={s.heroEyebrow}>{lang === 'ko' ? '이번 주말' : '本周末'}</Text>
-          {sat && sun ? (
+          <View style={s.heroTopRow}>
+            <Text style={s.heroEyebrow}>{lang === 'ko' ? '이번 주말까지' : '到本周末'}</Text>
+            <TouchableOpacity onPress={() => refreshWeekend(true)} disabled={weekendLoading} style={s.refreshBtn}>
+              {weekendLoading ? (
+                <ActivityIndicator size="small" color={theme.accentInk} />
+              ) : (
+                <Text style={s.refreshIcon}>↻</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {start && end ? (
             <View style={s.heroDates}>
-              <View style={s.dateBlock}>
-                <Text style={s.dateNum}>{sat.getDate()}</Text>
+              <View>
+                <Text style={s.dateNum}>{start.getDate()}</Text>
                 <Text style={s.dateMon}>
-                  {sat.getMonth() + 1}{lang === 'ko' ? '월 토' : '月 周六'}
+                  {start.getMonth() + 1}{lang === 'ko' ? '월 ' : '月 '}{dowLabel(start, lang)}
                 </Text>
               </View>
               <Text style={s.heroDash}>—</Text>
-              <View style={s.dateBlock}>
-                <Text style={s.dateNum}>{sun.getDate()}</Text>
+              <View>
+                <Text style={s.dateNum}>{end.getDate()}</Text>
                 <Text style={s.dateMon}>
-                  {sun.getMonth() + 1}{lang === 'ko' ? '월 일' : '月 周日'}
+                  {end.getMonth() + 1}{lang === 'ko' ? '월 ' : '月 '}{dowLabel(end, lang)}
                 </Text>
               </View>
             </View>
           ) : (
-            <Text style={s.heroEmpty}>{t('noData', lang)}</Text>
+            <Text style={s.heroEmpty}>
+              {weekendLoading
+                ? (lang === 'ko' ? 'AI가 찾는 중...' : 'AI 正在搜索...')
+                : t('noData', lang)}
+            </Text>
           )}
-          {weekly && (
+          {weekendData && (
             <Text style={s.heroMeta}>
-              {t('generatedAt', lang)} · {new Date(weekly.generated_at).toLocaleDateString()}
+              {t('generatedAt', lang)} {new Date(weekendData.generatedAt).toLocaleString()}
             </Text>
           )}
         </LinearGradient>
@@ -111,101 +115,81 @@ export default function WeekendScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* 합의 박스 */}
-        {(voteConsensus.length > 0 || wishConsensus.length > 0) && (
-          <View style={s.consensusCard}>
-            <View style={s.consensusHeader}>
-              <Text style={s.consensusBadge}>둘 다 ❤️</Text>
-            </View>
-            {voteConsensus.length > 0 && (
-              <View style={{ marginBottom: wishConsensus.length > 0 ? 14 : 0 }}>
-                <Text style={s.consensusLabel}>🗳 {t('bothVotedTitle', lang)}</Text>
-                <View style={s.pillRow}>
-                  {voteConsensus.map(p => (
-                    <View key={p.id} style={[s.pill, { backgroundColor: theme.accentDeep }]}>
-                      <Text style={s.pillText}>{lang === 'ko' ? p.nameKo : p.nameZh}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-            {wishConsensus.length > 0 && (
-              <View>
-                <Text style={s.consensusLabel}>♥♥ {t('consensusTitle', lang)}</Text>
-                <View style={s.pillRow}>
-                  {wishConsensus.map(p => (
-                    <View key={p.id} style={[s.pill, { backgroundColor: theme.goodDeep }]}>
-                      <Text style={s.pillText}>{lang === 'ko' ? p.nameKo : p.nameZh}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
+        {weekendData?.error && (
+          <View style={s.errBox}>
+            <Text style={s.errText}>⚠️ {weekendData.error}</Text>
           </View>
         )}
 
-        <Section title={t('weatherTitle', lang)} icon="🌤">
-          {weekly && weekly.weather.length > 0 ? (
-            <View style={s.row}>
-              {weekly.weather.map(w => (
-                <WeatherCard key={w.date} w={w} />
+        {/* 날씨 */}
+        <Section title={lang === 'ko' ? '매일 날씨' : '每日天气'} icon="🌤">
+          {weekendData && weekendData.weather.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 16 }}>
+              {weekendData.weather.map(w => (
+                <View key={w.date} style={{ width: 140 }}>
+                  <WeatherCard w={w} />
+                </View>
               ))}
-            </View>
+            </ScrollView>
+          ) : weekendLoading ? (
+            <Loading text={lang === 'ko' ? '날씨 가져오는 중...' : '获取天气中...'} />
           ) : (
             <Empty text={t('noData', lang)} />
           )}
         </Section>
 
-        <Section title={t('eventsTitle', lang)} icon="🎉">
-          {weekly && weekly.events.length > 0 ? (
+        {/* 행사 */}
+        <Section title={lang === 'ko' ? '이번 기간 행사' : '本期间活动'} icon="🎉">
+          {weekendData && weekendData.events.length > 0 ? (
             <View style={{ gap: 10 }}>
-              {weekly.events.map((e, i) => (
+              {weekendData.events.map((e, i) => (
                 <EventCard key={i} e={e} />
               ))}
             </View>
+          ) : weekendLoading ? (
+            <Loading text={lang === 'ko' ? '행사 검색 중...' : '搜索活动中...'} />
           ) : (
             <Empty text={t('noEvents', lang)} />
           )}
         </Section>
 
-        <Section title={t('recsTitle', lang)} icon="🌸">
-          {weekly && weekly.recommendations.length > 0 ? (
+        {/* AI 추천 코스 */}
+        <Section title={lang === 'ko' ? '추천 코스' : '推荐路线'} icon="🌸">
+          {weekendData && weekendData.recommendations.length > 0 ? (
             <View style={{ gap: 14 }}>
-              {weekly.recommendations.map((r, i) => {
-                const place = placesById[r.place_id];
-                if (!place) return null;
-                const placeVotes = votes.filter(
-                  v => v.weekend_saturday === weekly.weekend_saturday && v.place_id === place.id,
-                );
-                const placeWish = wishlist.filter(w => w.place_id === place.id);
+              {weekendData.recommendations.map((p, i) => {
+                const key = `${p.nameKo}|${p.nameZh}`;
+                const alreadySaved = savedTitles.has(`${p.nameKo} (${p.nameZh})`.toLowerCase());
                 return (
-                  <PlaceCard
-                    key={place.id}
-                    place={place}
+                  <AIPlaceCard
+                    key={key}
+                    place={p}
                     rank={i + 1}
-                    score={r.score}
-                    reasons={r.reasons}
-                    voteCount={placeVotes.length}
-                    bothVote={placeVotes.length >= 2}
-                    iVote={!!me && placeVotes.some(v => v.user_id === me)}
-                    wishCount={placeWish.length}
-                    bothWish={placeWish.length >= 2}
-                    iWish={!!me && placeWish.some(w => w.user_id === me)}
-                    onVote={() => toggleVote(place.id)}
-                    onWish={() => toggleWish(place.id)}
-                    wishActors={placeWish.length > 0 ? actorLabels(placeWish.map(w => w.user_id), profiles, me) : undefined}
-                    voteActors={placeVotes.length > 0 ? actorLabels(placeVotes.map(v => v.user_id), profiles, me) : undefined}
+                    onSave={() => saveToDiscovery(p)}
+                    saved={alreadySaved}
                   />
                 );
               })}
             </View>
+          ) : weekendLoading ? (
+            <Loading text={lang === 'ko' ? 'AI 검색 중... (10~20초)' : 'AI 搜索中...'} />
           ) : (
             <Empty text={t('noData', lang)} />
           )}
         </Section>
+
+        {weekendData?.notes && (
+          <Text style={s.notes}>📝 {weekendData.notes}</Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function dowLabel(d: Date, lang: 'ko' | 'zh'): string {
+  const ko = ['일', '월', '화', '수', '목', '금', '토'];
+  const zh = ['日', '一', '二', '三', '四', '五', '六'];
+  return (lang === 'ko' ? ko : zh)[d.getDay()];
 }
 
 function Section({ title, icon, children }: { title: string; icon?: string; children: React.ReactNode }) {
@@ -229,6 +213,15 @@ function Empty({ text }: { text: string }) {
   );
 }
 
+function Loading({ text }: { text: string }) {
+  return (
+    <View style={s.loading}>
+      <ActivityIndicator color={theme.accentDeep} />
+      <Text style={s.loadingText}>{text}</Text>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingBottom: 120, paddingTop: 4 },
 
@@ -239,14 +232,22 @@ const s = StyleSheet.create({
     marginBottom: 18,
     ...shadow.md,
   },
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   heroEyebrow: {
     ...typography.section,
     color: theme.accentInk,
     opacity: 0.7,
-    marginBottom: 10,
   },
+  refreshBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshIcon: { fontSize: 18, color: theme.accentInk, fontWeight: '700' },
   heroDates: { flexDirection: 'row', alignItems: 'flex-end', gap: 14 },
-  dateBlock: {},
   dateNum: {
     fontSize: 56,
     fontWeight: '800',
@@ -286,36 +287,21 @@ const s = StyleSheet.create({
   ctaSub: { fontSize: 11, color: '#fff', opacity: 0.85 },
   ctaArrow: { fontSize: 26, color: '#fff', opacity: 0.7, fontWeight: '300' },
 
-  consensusCard: {
-    backgroundColor: theme.card,
-    borderRadius: radius.lg,
-    padding: 18,
-    marginBottom: 24,
+  errBox: {
+    backgroundColor: '#fff0f0',
+    borderColor: theme.bad,
     borderWidth: 1,
-    borderColor: theme.borderSoft,
-    ...shadow.sm,
+    borderRadius: radius.md,
+    padding: 12,
+    marginBottom: 16,
   },
-  consensusHeader: { marginBottom: 14 },
-  consensusBadge: {
-    ...typography.section,
-    color: theme.accentDeep,
-    fontSize: 11,
-  },
-  consensusLabel: { ...typography.caption, color: theme.textDim, marginBottom: 8 },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  pill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-  },
-  pillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  errText: { fontSize: 12, color: theme.badInk, fontWeight: '600' },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   sectionIcon: { fontSize: 16 },
   sectionTitle: { ...typography.h3, color: theme.text },
   sectionLine: { flex: 1, height: 1, backgroundColor: theme.borderSoft, marginLeft: 4 },
 
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   empty: {
     backgroundColor: theme.cardSoft,
     borderWidth: 1,
@@ -325,4 +311,19 @@ const s = StyleSheet.create({
     padding: 20,
   },
   emptyText: { color: theme.textDim, fontSize: 13, textAlign: 'center' },
+  loading: {
+    backgroundColor: theme.cardSoft,
+    borderRadius: radius.md,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: { fontSize: 12, color: theme.textDim },
+  notes: {
+    fontSize: 11,
+    color: theme.textDim,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
+  },
 });

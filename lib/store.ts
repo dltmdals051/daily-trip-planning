@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from './supabase';
 import type { Place, WeeklySnapshot, Visit, WishlistRow, VoteRow, Discovery, Profile } from './types';
+import { fetchWeekendData, isFresh, type WeekendData } from './weekendData';
 
 type State = {
   places: Place[];
@@ -13,7 +14,10 @@ type State = {
   me: string | null;
   loading: boolean;
   error: string | null;
+  weekendData: WeekendData | null;
+  weekendLoading: boolean;
   refresh: () => Promise<void>;
+  refreshWeekend: (force?: boolean) => Promise<void>;
   toggleWish: (placeId: string) => Promise<void>;
   toggleVote: (placeId: string) => Promise<void>;
   addVisit: (placeId: string, rating: number | null, memo: string) => Promise<void>;
@@ -54,6 +58,20 @@ export const useStore = create<State>((set, get) => ({
   me: null,
   loading: false,
   error: null,
+  weekendData: null,
+  weekendLoading: false,
+
+  refreshWeekend: async (force = false) => {
+    if (!force && isFresh(get().weekendData)) return;
+    set({ weekendLoading: true });
+    try {
+      const data = await fetchWeekendData();
+      set({ weekendData: data, weekendLoading: false });
+    } catch (e: any) {
+      set({ weekendLoading: false });
+      console.error('[weekendData]', e);
+    }
+  },
 
   refresh: async () => {
     set({ loading: true, error: null });
