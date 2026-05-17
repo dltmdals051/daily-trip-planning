@@ -1,22 +1,51 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { EventItem } from '../../lib/types';
 
-const SYSTEM = `너는 중국 우시(无锡)에 사는 한국인 사용자(여자친구는 산동 출신)를 위해
-이번 주말(토~일) 무시 + 강소성(쑤저우/난징/창저우/양저우/전장) + 가까운 상하이/항저우의
-이벤트·행사·전시·축제·페어를 찾아 JSON으로 정리한다. 추측이나 작년 정보는 제외한다.
-구체적인 날짜와 장소가 확인되는 것만 포함.`;
+type SourceStrategy = {
+  city: string;
+  queries: string[];
+};
 
-const USER_TEMPLATE = (sat: string, sun: string) => `
-이번 주말(${sat} 토요일 ~ ${sun} 일요일)에 우시(无锡) 및 인근 강소성/상하이/항저우에서 열리는
-실제 행사/전시/페어/콘서트/시즌 이벤트를 웹검색으로 찾아줘.
+type EventSources = {
+  strategies: SourceStrategy[];
+  preferDomains: string[];
+  notes: string;
+};
 
-조건:
-- 두 명(20대 후반 한중 커플)이 갈 만한 것 위주.
-- 정치/종교 집회, 상업 사은품 행사, B2B 박람회는 제외.
-- 한국어로 정리. 중국어 원제목은 title에 포함해도 됨.
-- 최대 8개.
+const SYSTEM = `너는 중국 우시(无锡)에 사는 한국인 + 산동 출신 여자친구 커플을 위한
+주말 행사 큐레이터다. 주어진 검색 전략 화이트리스트만 사용해서 web_search 도구로 조사하고,
+검증된 실제 행사만 JSON으로 보고한다. 작년 정보, 추측, 광고성 후기는 제외.
+구체적 날짜 + 장소 + 출처 URL이 모두 확인된 것만 포함한다.
 
-다음 JSON 스키마로만 답해 (코드펜스 없이 raw JSON):
+우선순위:
+1. 大麦网/票务 사이트의 콘서트·뮤지컬·전시
+2. 시정부/관광국 공식 사이트의 페스티벌·시즌 이벤트
+3. 박물관·미술관 특별전 공식 페이지
+4. 대형 몰·테마파크의 한정 이벤트
+
+제외:
+- 정치 집회, 종교 행사
+- B2B 박람회 (의류전·산업박람회 등)
+- 단순 상가 세일`;
+
+function buildUserPrompt(saturday: string, sunday: string, sources: EventSources): string {
+  const strategiesText = sources.strategies
+    .map(s => `### ${s.city}\n` + s.queries.map(q => `  - "${q}"`).join('\n'))
+    .join('\n\n');
+
+  return `이번 주말(${saturday} 토 ~ ${sunday} 일) 우시 + 강소성·상하이·항저우 행사를 찾아줘.
+
+## 검색 전략 (이 쿼리들을 순서대로 시도, 도시별로 1~2개씩)
+
+${strategiesText}
+
+## 선호 도메인 (검색 결과 중 우선 인용)
+${sources.preferDomains.map(d => '- ' + d).join('\n')}
+
+## 출력 (raw JSON only, 코드펜스 금지)
+
 {
   "events": [
     {
@@ -24,12 +53,18 @@ const USER_TEMPLATE = (sat: string, sun: string) => `
       "city": "无锡|苏州|南京|常州|扬州|镇江|上海|杭州",
       "dateRange": "YYYY-MM-DD ~ YYYY-MM-DD",
       "url": "https://...",
-      "summary": "한국어 1~2줄 요약"
+      "summary": "한국어 1~2줄"
     }
   ],
-  "notes": "검색 시 특이사항/신뢰도 메모 (선택)"
+  "notes": "검색 신뢰도 / 빠뜨린 카테고리 / 다음 주 보완 필요 등 메모"
 }
-`;
+
+규칙:
+- 최대 10개. 적게라도 검증된 것만.
+- 같은 행사는 한 번만.
+- city 필드는 위 enum 값에서만.
+- url은 1차 출처 (大麦, 공식 사이트 등). 클릭하면 직접 보이는 페이지.`;
+}
 
 export async function fetchWeekendEvents(saturday: string, sunday: string): Promise<{ events: EventItem[]; notes?: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -38,19 +73,28 @@ export async function fetchWeekendEvents(saturday: string, sunday: string): Prom
     return { events: [], notes: 'ANTHROPIC_API_KEY missing' };
   }
 
+  let sources: EventSources;
+  try {
+    const sourcesPath = path.resolve(__dirname, '../../data/event_sources.json');
+    sources = JSON.parse(await readFile(sourcesPath, 'utf8'));
+  } catch (e) {
+    console.warn('[events] event_sources.json 못 읽음, 폴백 모드', e);
+    sources = { strategies: [], preferDomains: [], notes: '' };
+  }
+
   const client = new Anthropic({ apiKey });
   const msg = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
+    max_tokens: 6000,
     system: SYSTEM,
     tools: [
       {
         type: 'web_search_20250305',
         name: 'web_search',
-        max_uses: 6,
+        max_uses: 12,
       } as any,
     ],
-    messages: [{ role: 'user', content: USER_TEMPLATE(saturday, sunday) }],
+    messages: [{ role: 'user', content: buildUserPrompt(saturday, sunday, sources) }],
   });
 
   const text = msg.content
@@ -62,12 +106,13 @@ export async function fetchWeekendEvents(saturday: string, sunday: string): Prom
   const jsonStart = text.indexOf('{');
   const jsonEnd = text.lastIndexOf('}');
   if (jsonStart < 0 || jsonEnd < 0) {
-    console.warn('[events] JSON 파싱 실패');
+    console.warn('[events] JSON 파싱 실패. 원문:', text.slice(0, 500));
     return { events: [], notes: 'parse failed' };
   }
 
   try {
     const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+    console.log(`[events] ${parsed.events?.length ?? 0}개 행사 발견`);
     return { events: parsed.events ?? [], notes: parsed.notes };
   } catch (e) {
     console.warn('[events] JSON.parse 에러', e);

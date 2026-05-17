@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, TextInput, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, TextInput, Modal, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '@/lib/store';
 import { useLang, t, placeName } from '@/lib/i18n';
@@ -9,13 +9,19 @@ import { supabase } from '@/lib/supabase';
 
 export default function PlacesScreen() {
   const lang = useLang(s => s.lang);
-  const { places, wishlist, visits, loading, refresh, toggleWish, addVisit } = useStore();
+  const { places, wishlist, visits, discoveries, loading, refresh, toggleWish, addVisit, addDiscovery, deleteDiscovery } = useStore();
   const [cityFilter, setCityFilter] = useState<string | null>(null);
   const [me, setMe] = useState<string | null>(null);
 
   const [modalPlace, setModalPlace] = useState<string | null>(null);
   const [rating, setRating] = useState<number | null>(null);
   const [memo, setMemo] = useState('');
+
+  const [discModal, setDiscModal] = useState(false);
+  const [discTitle, setDiscTitle] = useState('');
+  const [discUrl, setDiscUrl] = useState('');
+  const [discCity, setDiscCity] = useState('');
+  const [discMemo, setDiscMemo] = useState('');
 
   useEffect(() => {
     refresh();
@@ -45,6 +51,18 @@ export default function PlacesScreen() {
     setModalPlace(null);
   }
 
+  async function saveDiscovery() {
+    if (!discTitle.trim()) return;
+    await addDiscovery({
+      title: discTitle.trim(),
+      url: discUrl.trim() || undefined,
+      city: discCity.trim() || undefined,
+      memo: discMemo.trim() || undefined,
+    });
+    setDiscModal(false);
+    setDiscTitle(''); setDiscUrl(''); setDiscCity(''); setDiscMemo('');
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['left', 'right']}>
       <ScrollView
@@ -52,6 +70,50 @@ export default function PlacesScreen() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.text} />}
       >
         <Text style={s.h1}>{t('tabPlaces', lang)}</Text>
+
+        {/* 발견 섹션 */}
+        <View style={s.discSection}>
+          <View style={s.discHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.discTitle}>{t('discoveriesTitle', lang)}</Text>
+              <Text style={s.discSub}>{t('discoveriesSub', lang)}</Text>
+            </View>
+            <TouchableOpacity style={s.discAddBtn} onPress={() => setDiscModal(true)}>
+              <Text style={s.discAddBtnText}>+ {t('addDiscovery', lang)}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {discoveries.length === 0 ? (
+            <Text style={s.discEmpty}>{t('noDiscoveries', lang)}</Text>
+          ) : (
+            <View style={{ gap: 8, marginTop: 10 }}>
+              {discoveries.slice(0, 5).map(d => (
+                <View key={d.id} style={s.discCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.discCardTitle}>{d.title}</Text>
+                    <Text style={s.discCardMeta}>
+                      {d.source ? `${d.source} · ` : ''}
+                      {d.city ? `${d.city} · ` : ''}
+                      {new Date(d.created_at).toLocaleDateString()}
+                    </Text>
+                    {d.memo && <Text style={s.discCardMemo}>{d.memo}</Text>}
+                    {d.url && (
+                      <TouchableOpacity onPress={() => Linking.openURL(d.url!)}>
+                        <Text style={s.discCardLink}>{t('openLink', lang)} →</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={() => deleteDiscovery(d.id)}>
+                    <Text style={s.discDel}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {discoveries.length > 5 && (
+                <Text style={s.discMore}>+ {discoveries.length - 5}{lang === 'ko' ? '개 더' : '个'}</Text>
+              )}
+            </View>
+          )}
+        </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           <Chip active={cityFilter === null} onPress={() => setCityFilter(null)} label={t('filterAll', lang)} />
@@ -79,6 +141,62 @@ export default function PlacesScreen() {
           })}
         </View>
       </ScrollView>
+
+      <Modal visible={discModal} animationType="slide" transparent onRequestClose={() => setDiscModal(false)}>
+        <View style={s.modalRoot}>
+          <View style={s.modalBox}>
+            <Text style={s.modalTitle}>{t('addDiscovery', lang)}</Text>
+
+            <Text style={s.modalLabel}>{t('discoveryTitle', lang)}</Text>
+            <TextInput
+              style={s.discInput}
+              value={discTitle}
+              onChangeText={setDiscTitle}
+              placeholderTextColor={theme.textDim}
+              placeholder={lang === 'ko' ? '예: 와이탄 야경 카페' : '例如:外滩夜景咖啡店'}
+            />
+
+            <Text style={s.modalLabel}>{t('discoveryUrl', lang)}</Text>
+            <TextInput
+              style={s.discInput}
+              value={discUrl}
+              onChangeText={setDiscUrl}
+              placeholderTextColor={theme.textDim}
+              placeholder="https://xhslink.com/... 또는 https://..."
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Text style={s.modalLabel}>{t('discoveryCity', lang)}</Text>
+            <TextInput
+              style={s.discInput}
+              value={discCity}
+              onChangeText={setDiscCity}
+              placeholderTextColor={theme.textDim}
+              placeholder="无锡 / 苏州 / 上海 ..."
+            />
+
+            <Text style={s.modalLabel}>{t('discoveryMemo', lang)}</Text>
+            <TextInput
+              style={[s.discInput, { minHeight: 60, textAlignVertical: 'top' }]}
+              value={discMemo}
+              onChangeText={setDiscMemo}
+              placeholderTextColor={theme.textDim}
+              multiline
+              numberOfLines={3}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <TouchableOpacity style={[s.modalBtn, { backgroundColor: theme.border }]} onPress={() => setDiscModal(false)}>
+                <Text style={{ color: theme.text }}>×</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.modalBtn, { backgroundColor: theme.accent, flex: 1 }]} onPress={saveDiscovery}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('save', lang)}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={!!modalPlace} animationType="slide" transparent onRequestClose={() => setModalPlace(null)}>
         <View style={s.modalRoot}>
@@ -172,5 +290,48 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     alignItems: 'center',
+  },
+  discSection: {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.accent,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 18,
+  },
+  discHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  discTitle: { fontSize: 14, fontWeight: '700', color: theme.accent, marginBottom: 2 },
+  discSub: { fontSize: 11, color: theme.textDim },
+  discAddBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: theme.accent,
+    borderRadius: 8,
+  },
+  discAddBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  discEmpty: { fontSize: 12, color: theme.textDim, marginTop: 10, fontStyle: 'italic' },
+  discCard: {
+    flexDirection: 'row',
+    backgroundColor: theme.bg,
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  discCardTitle: { fontSize: 13, fontWeight: '600', color: theme.text },
+  discCardMeta: { fontSize: 10, color: theme.textDim, marginTop: 2 },
+  discCardMemo: { fontSize: 12, color: theme.text, marginTop: 4 },
+  discCardLink: { fontSize: 11, color: theme.accentSoft, marginTop: 4 },
+  discDel: { fontSize: 18, color: theme.textDim, paddingHorizontal: 6 },
+  discMore: { fontSize: 11, color: theme.textDim, textAlign: 'center', marginTop: 4 },
+  discInput: {
+    backgroundColor: theme.bg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 8,
+    padding: 10,
+    color: theme.text,
+    fontSize: 14,
+    marginBottom: 4,
   },
 });

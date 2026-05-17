@@ -81,6 +81,19 @@ export type WishlistRow = {
   created_at: string;
 };
 
+export type Discovery = {
+  id: string;
+  user_id: string;
+  url: string | null;
+  title: string;
+  city: string | null;
+  category: string | null;
+  memo: string | null;
+  source: string | null;
+  promoted_to_place_id: string | null;
+  created_at: string;
+};
+
 export type VoteRow = {
   user_id: string;
   weekend_saturday: string;

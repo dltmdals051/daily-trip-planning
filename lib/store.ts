@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from './supabase';
-import type { Place, WeeklySnapshot, Visit, WishlistRow, VoteRow } from './types';
+import type { Place, WeeklySnapshot, Visit, WishlistRow, VoteRow, Discovery } from './types';
 
 type State = {
   places: Place[];
@@ -8,6 +8,7 @@ type State = {
   visits: Visit[];
   wishlist: WishlistRow[];
   votes: VoteRow[];
+  discoveries: Discovery[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -15,6 +16,8 @@ type State = {
   toggleVote: (placeId: string) => Promise<void>;
   addVisit: (placeId: string, rating: number | null, memo: string) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
+  addDiscovery: (input: { title: string; url?: string; city?: string; category?: string; memo?: string; source?: string }) => Promise<void>;
+  deleteDiscovery: (id: string) => Promise<void>;
 };
 
 function placeFromRow(r: any): Place {
@@ -42,13 +45,14 @@ export const useStore = create<State>((set, get) => ({
   visits: [],
   wishlist: [],
   votes: [],
+  discoveries: [],
   loading: false,
   error: null,
 
   refresh: async () => {
     set({ loading: true, error: null });
     try {
-      const [placesRes, weeklyRes, visitsRes, wishRes, votesRes] = await Promise.all([
+      const [placesRes, weeklyRes, visitsRes, wishRes, votesRes, discRes] = await Promise.all([
         supabase.from('places').select('*'),
         supabase
           .from('weekly_snapshots')
@@ -59,18 +63,21 @@ export const useStore = create<State>((set, get) => ({
         supabase.from('visits').select('*').order('visited_on', { ascending: false }),
         supabase.from('wishlist').select('*'),
         supabase.from('weekend_votes').select('*'),
+        supabase.from('discoveries').select('*').order('created_at', { ascending: false }),
       ]);
       if (placesRes.error) throw placesRes.error;
       if (weeklyRes.error) throw weeklyRes.error;
       if (visitsRes.error) throw visitsRes.error;
       if (wishRes.error) throw wishRes.error;
       if (votesRes.error) throw votesRes.error;
+      if (discRes.error) throw discRes.error;
       set({
         places: (placesRes.data ?? []).map(placeFromRow),
         weekly: (weeklyRes.data as WeeklySnapshot | null) ?? null,
         visits: (visitsRes.data ?? []) as Visit[],
         wishlist: (wishRes.data ?? []) as WishlistRow[],
         votes: (votesRes.data ?? []) as VoteRow[],
+        discoveries: (discRes.data ?? []) as Discovery[],
         loading: false,
       });
     } catch (e: any) {
@@ -131,4 +138,38 @@ export const useStore = create<State>((set, get) => ({
     await supabase.from('visits').delete().eq('id', id);
     await get().refresh();
   },
+
+  addDiscovery: async input => {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return;
+    await supabase.from('discoveries').insert({
+      user_id: user.user.id,
+      title: input.title,
+      url: input.url ?? null,
+      city: input.city ?? null,
+      category: input.category ?? null,
+      memo: input.memo ?? null,
+      source: input.source ?? detectSource(input.url ?? ''),
+    });
+    await get().refresh();
+  },
+
+  deleteDiscovery: async id => {
+    await supabase.from('discoveries').delete().eq('id', id);
+    await get().refresh();
+  },
 }));
+
+function detectSource(url: string): string | null {
+  if (!url) return null;
+  if (url.includes('xiaohongshu.com') || url.includes('xhslink.com')) return '小红书';
+  if (url.includes('dianping.com')) return '大众点评';
+  if (url.includes('meituan.com')) return '美团';
+  if (url.includes('mafengwo')) return '马蜂窝';
+  if (url.includes('ctrip') || url.includes('trip.com')) return '携程';
+  if (url.includes('damai')) return '大麦网';
+  if (url.includes('weixin') || url.includes('mp.weixin.qq.com')) return '微信';
+  if (url.includes('douyin') || url.includes('iesdouyin')) return '抖音';
+  if (url.includes('weibo')) return '微博';
+  return null;
+}

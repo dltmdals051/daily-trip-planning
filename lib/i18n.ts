@@ -103,6 +103,15 @@ const dict = {
   resetBtn: { ko: '초기화', zh: '重置' },
   resultsTitle: { ko: '추천 결과', zh: '推荐结果' },
   noMatches: { ko: '조건에 맞는 곳이 없어요. 필터를 줄여보세요.', zh: '没有符合条件的地方,请放宽筛选' },
+  discoveriesTitle: { ko: '🔖 내가 발견한 곳', zh: '🔖 我发现的地方' },
+  discoveriesSub: { ko: '샤오홍슈·위챗 등에서 본 곳 빠르게 저장', zh: '把小红书·微信看到的快速保存' },
+  addDiscovery: { ko: '발견 추가', zh: '添加发现' },
+  noDiscoveries: { ko: '아직 발견한 곳이 없어요', zh: '还没有发现' },
+  discoveryTitle: { ko: '제목 (필수)', zh: '标题(必填)' },
+  discoveryUrl: { ko: 'URL (선택)', zh: '链接(可选)' },
+  discoveryCity: { ko: '도시 (선택)', zh: '城市(可选)' },
+  discoveryMemo: { ko: '메모', zh: '备注' },
+  openLink: { ko: '링크 열기', zh: '打开链接' },
 } as const;
 
 export type DictKey = keyof typeof dict;
