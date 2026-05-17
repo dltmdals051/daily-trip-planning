@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { useLang, t, type DictKey } from '@/lib/i18n';
-import { theme, shadow } from '@/lib/theme';
+import { theme, shadow, radius, gradient } from '@/lib/theme';
 import { AIPlaceCard } from '@/components/cards/AIPlaceCard';
 import { aiRecommend } from '@/lib/aiRecommend';
 import { defaultFilters } from '@/lib/types';
@@ -110,14 +111,24 @@ export default function CustomScreen() {
         }}
       />
       <ScrollView contentContainerStyle={s.content}>
-        <View style={s.aiBanner}>
-          <Text style={s.aiBannerTitle}>🤖 {lang === 'ko' ? 'AI 실시간 검색' : 'AI 实时搜索'}</Text>
-          <Text style={s.aiBannerSub}>
-            {lang === 'ko'
-              ? 'Gemini가 구글 검색으로 매번 새로 찾아옴. 큐레이션 목록 기반 아님.'
-              : 'Gemini 通过谷歌搜索实时查找,不基于固定列表'}
-          </Text>
-        </View>
+        <LinearGradient
+          colors={gradient.lavender}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.aiBanner}
+        >
+          <View style={s.aiBannerIcon}>
+            <Text style={{ fontSize: 22 }}>🤖</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.aiBannerTitle}>{lang === 'ko' ? 'AI 실시간 검색' : 'AI 实时搜索'}</Text>
+            <Text style={s.aiBannerSub}>
+              {lang === 'ko'
+                ? 'Gemini가 매번 구글에서 새로 찾아옴'
+                : 'Gemini 每次实时搜索谷歌'}
+            </Text>
+          </View>
+        </LinearGradient>
 
         {/* 시작 날짜 */}
         <Field label={t('filterStartDate', lang)}>
@@ -339,12 +350,23 @@ function ChipRow<T extends string | number>({
 const s = StyleSheet.create({
   content: { padding: 16, paddingBottom: 80 },
   aiBanner: {
-    backgroundColor: theme.lavender,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: radius.lg,
     padding: 14,
     marginBottom: 18,
+    ...shadow.sm,
   },
-  aiBannerTitle: { fontSize: 14, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  aiBannerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiBannerTitle: { fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 2 },
   aiBannerSub: { fontSize: 12, color: '#fff', opacity: 0.9, lineHeight: 17 },
   field: { marginBottom: 18 },
   fieldLabel: {

@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Place } from '@/lib/types';
-import { theme, shadow } from '@/lib/theme';
+import { theme, shadow, radius, gradient } from '@/lib/theme';
 import { useLang, t, placeName } from '@/lib/i18n';
 import { openDirections, sharePlace } from '@/lib/share';
 
@@ -43,50 +44,54 @@ export function PlaceCard({
 }: Props) {
   const lang = useLang(s => s.lang);
   return (
-    <View style={[s.card, bothVote && { borderColor: theme.accent }]}>
-      <View style={s.headerRow}>
+    <View style={[s.card, bothVote && s.cardConsensus]}>
+      {/* Top stripe with rank + status badges */}
+      <View style={s.topRow}>
         {rank !== undefined && (
-          <View style={s.rankPill}>
-            <Text style={s.rankText}>
-              #{rank} · {score?.toFixed(1)}
-            </Text>
+          <LinearGradient
+            colors={gradient.accent}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.rankBadge}
+          >
+            <Text style={s.rankNum}>#{rank}</Text>
+            {score !== undefined && <Text style={s.rankScore}>{score.toFixed(1)}</Text>}
+          </LinearGradient>
+        )}
+        <View style={{ flex: 1 }} />
+        {bothVote && (
+          <View style={[s.statusPill, { backgroundColor: theme.accentDeep }]}>
+            <Text style={s.statusText}>🗳 합의</Text>
           </View>
         )}
         {bothWish && (
-          <View style={[s.rankPill, { backgroundColor: theme.goodDeep }]}>
-            <Text style={s.rankText}>♥♥ {t('wantedByBoth', lang)}</Text>
+          <View style={[s.statusPill, { backgroundColor: theme.goodDeep }]}>
+            <Text style={s.statusText}>♥♥</Text>
           </View>
         )}
-        {bothVote && (
-          <View style={[s.rankPill, { backgroundColor: theme.accentDeep }]}>
-            <Text style={s.rankText}>🗳 합의</Text>
+        {visitCount !== undefined && visitCount > 0 && (
+          <View style={[s.statusPill, { backgroundColor: theme.good }]}>
+            <Text style={[s.statusText, { color: theme.goodInk }]}>✓ ×{visitCount}</Text>
           </View>
         )}
       </View>
 
+      {/* Name */}
       <Text style={s.nameMain}>{placeName(place, lang)}</Text>
       <Text style={s.nameSub}>
-        {lang === 'ko' ? place.nameZh : place.nameKo} · {place.city}
+        {lang === 'ko' ? place.nameZh : place.nameKo}
+        <Text style={{ color: theme.textDim }}>  ·  {place.city}</Text>
       </Text>
 
+      {/* Meta row — emoji-led for scanability */}
       <View style={s.metaRow}>
-        <Text style={s.metaPill}>
-          {t('travelTime', lang)} {place.travelMinutesFromWuxi}
-          {t('minutes', lang)}
-        </Text>
-        <Text style={s.metaPill}>
-          {place.durationHours[0]}~{place.durationHours[1]}
-          {t('hours', lang)}
-        </Text>
-        <Text style={s.metaPill}>{place.cost}</Text>
-        <Text style={s.metaPill}>
-          {t('date', lang)} {place.dateScore}/10
-        </Text>
-        {visitCount !== undefined && visitCount > 0 && (
-          <Text style={[s.metaPill, { backgroundColor: theme.good, color: theme.goodInk, borderColor: theme.good }]}>✓ ×{visitCount}</Text>
-        )}
+        <Meta icon="🚗" label={`${place.travelMinutesFromWuxi}${t('minutes', lang)}`} />
+        <Meta icon="⏱" label={`${place.durationHours[0]}~${place.durationHours[1]}${t('hours', lang)}`} />
+        <Meta icon="💰" label={place.cost} />
+        <Meta icon="💕" label={`${place.dateScore}/10`} />
       </View>
 
+      {/* Notes */}
       <Text style={s.notes}>{place.notes}</Text>
       {place.tips && (
         <View style={s.tipBox}>
@@ -94,6 +99,7 @@ export function PlaceCard({
         </View>
       )}
 
+      {/* Reasons */}
       {reasons && reasons.length > 0 && (
         <View style={s.reasons}>
           {reasons.map((r, i) => (
@@ -104,6 +110,7 @@ export function PlaceCard({
         </View>
       )}
 
+      {/* Actors */}
       {(wishActors || voteActors) && (
         <Text style={s.actors}>
           {wishActors ? `♥ ${wishActors}` : ''}
@@ -112,35 +119,60 @@ export function PlaceCard({
         </Text>
       )}
 
+      {/* Action row */}
       <View style={s.actionRow}>
         {onWish && (
-          <TouchableOpacity style={[s.action, iWish && s.actionOn]} onPress={onWish}>
-            <Text style={[s.actionText, iWish && { color: '#fff' }]}>
-              {iWish ? '♥' : '♡'} {t('wantToGo', lang)} {wishCount ? `(${wishCount})` : ''}
-            </Text>
-          </TouchableOpacity>
+          <ActionBtn
+            label={`${iWish ? '♥' : '♡'} ${t('wantToGo', lang)}${wishCount ? `(${wishCount})` : ''}`}
+            on={!!iWish}
+            onPress={onWish}
+            primary
+          />
         )}
         {onVote && (
-          <TouchableOpacity style={[s.action, iVote && s.actionOn]} onPress={onVote}>
-            <Text style={[s.actionText, iVote && { color: '#fff' }]}>
-              {iVote ? '✓ ' : ''}
-              {t('vote', lang)} {voteCount ? `(${voteCount})` : ''}
-            </Text>
-          </TouchableOpacity>
+          <ActionBtn
+            label={`${iVote ? '✓ ' : ''}${t('vote', lang)}${voteCount ? `(${voteCount})` : ''}`}
+            on={!!iVote}
+            onPress={onVote}
+            primary
+          />
         )}
-        {onMarkVisited && (
-          <TouchableOpacity style={s.action} onPress={onMarkVisited}>
-            <Text style={s.actionText}>+ {t('markVisited', lang)}</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={s.action} onPress={() => openDirections(place)}>
-          <Text style={s.actionText}>🧭 {lang === 'ko' ? '길찾기' : '导航'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.action} onPress={() => sharePlace(place, lang === 'zh')}>
-          <Text style={s.actionText}>↗ {lang === 'ko' ? '공유' : '分享'}</Text>
-        </TouchableOpacity>
+        {onMarkVisited && <ActionBtn label={`+ ${t('markVisited', lang)}`} onPress={onMarkVisited} />}
+        <ActionBtn label={`🧭 ${lang === 'ko' ? '길찾기' : '导航'}`} onPress={() => openDirections(place)} />
+        <ActionBtn label={`↗ ${lang === 'ko' ? '공유' : '分享'}`} onPress={() => sharePlace(place, lang === 'zh')} />
       </View>
     </View>
+  );
+}
+
+function Meta({ icon, label }: { icon: string; label: string }) {
+  return (
+    <View style={s.metaPill}>
+      <Text style={s.metaIcon}>{icon}</Text>
+      <Text style={s.metaText}>{label}</Text>
+    </View>
+  );
+}
+
+function ActionBtn({
+  label,
+  onPress,
+  on,
+  primary,
+}: {
+  label: string;
+  onPress: () => void;
+  on?: boolean;
+  primary?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[s.action, on && (primary ? s.actionOnPrimary : s.actionOn)]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <Text style={[s.actionText, on && { color: '#fff' }]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -148,61 +180,75 @@ const s = StyleSheet.create({
   card: {
     backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
+    borderColor: theme.borderSoft,
+    borderRadius: radius.lg,
+    padding: 18,
+    gap: 10,
     ...shadow.sm,
   },
-  headerRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  rankPill: {
-    backgroundColor: theme.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+  cardConsensus: {
+    borderColor: theme.accent,
+    borderWidth: 1.5,
+    ...shadow.glow,
+  },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rankBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  rankText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
-  nameMain: { fontSize: 16, fontWeight: '700', color: theme.text },
-  nameSub: { fontSize: 13, color: theme.textDim },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  rankNum: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  rankScore: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '700' },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  statusText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
+  nameMain: { fontSize: 18, fontWeight: '800', color: theme.text, letterSpacing: -0.3 },
+  nameSub: { fontSize: 13, color: theme.text, fontWeight: '500' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: theme.cardSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: theme.border,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    fontSize: 10,
-    color: theme.textDim,
-    fontWeight: '500',
-    overflow: 'hidden',
+    borderColor: theme.borderSoft,
   },
-  notes: { fontSize: 13, color: theme.text, lineHeight: 19 },
+  metaIcon: { fontSize: 11 },
+  metaText: { fontSize: 11, color: theme.text, fontWeight: '600' },
+  notes: { fontSize: 13, color: theme.text, lineHeight: 19, marginTop: 4 },
+  tipBox: {
+    backgroundColor: '#fff8ea',
+    borderRadius: radius.md,
+    padding: 10,
+    paddingHorizontal: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.warn,
+  },
+  tipText: { fontSize: 12, color: theme.warnInk, lineHeight: 17, fontWeight: '500' },
   reasons: {
     borderTopWidth: 1,
-    borderTopColor: theme.border,
+    borderTopColor: theme.borderSoft,
     borderStyle: 'dashed',
     paddingTop: 8,
+    gap: 2,
   },
-  reasonText: { fontSize: 12, color: theme.textDim, lineHeight: 17 },
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  reasonText: { fontSize: 11, color: theme.textDim, lineHeight: 16 },
+  actors: { fontSize: 11, color: theme.textDim, fontWeight: '500' },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   action: {
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: theme.borderSoft,
     backgroundColor: theme.card,
   },
   actionOn: { backgroundColor: theme.accent, borderColor: theme.accent },
-  actionText: { fontSize: 11, color: theme.text, fontWeight: '500' },
-  tipBox: {
-    backgroundColor: '#fff8ea',
-    borderRadius: 8,
-    padding: 8,
-    paddingHorizontal: 10,
-    marginTop: 4,
-  },
-  tipText: { fontSize: 12, color: theme.warnInk, lineHeight: 17 },
-  actors: { fontSize: 11, color: theme.textDim, marginTop: 2 },
+  actionOnPrimary: { backgroundColor: theme.accentDeep, borderColor: theme.accentDeep },
+  actionText: { fontSize: 11, color: theme.text, fontWeight: '600' },
 });

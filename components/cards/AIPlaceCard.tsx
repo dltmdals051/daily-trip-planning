@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform, Share, Image } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { AIPlace } from '@/lib/types';
-import { theme, shadow } from '@/lib/theme';
+import { theme, shadow, radius, gradient } from '@/lib/theme';
 import { useLang } from '@/lib/i18n';
 import { sourceDomain } from '@/lib/aiRecommend';
 
@@ -57,50 +58,75 @@ export function AIPlaceCard({ place, rank, onSave, saved }: Props) {
 
   return (
     <View style={s.card}>
-      {showImage && (
-        <Image
-          source={{ uri: place.imageUrl! }}
-          style={s.hero}
-          onError={() => setImgFailed(true)}
-          resizeMode="cover"
-        />
-      )}
-      <View style={s.body}>
-        <View style={s.headerRow}>
+      {showImage ? (
+        <View style={s.heroWrap}>
+          <Image
+            source={{ uri: place.imageUrl! }}
+            style={s.hero}
+            onError={() => setImgFailed(true)}
+            resizeMode="cover"
+          />
           {rank !== undefined && (
-            <View style={s.rankPill}>
-              <Text style={s.rankText}>#{rank}</Text>
-            </View>
+            <LinearGradient
+              colors={gradient.accent}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.heroRank}
+            >
+              <Text style={s.heroRankText}>#{rank}</Text>
+            </LinearGradient>
           )}
-          <View style={s.aiPill}>
-            <Text style={s.aiPillText}>🤖 AI 검색</Text>
+        </View>
+      ) : (
+        <LinearGradient
+          colors={gradient.accentSoft}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.heroPlaceholder}
+        >
+          {rank !== undefined && (
+            <LinearGradient
+              colors={gradient.accent}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.heroRank}
+            >
+              <Text style={s.heroRankText}>#{rank}</Text>
+            </LinearGradient>
+          )}
+          <Text style={s.placeholderEmoji}>{categoryEmoji(place.category)}</Text>
+        </LinearGradient>
+      )}
+
+      <View style={s.body}>
+        <View style={s.tagRow}>
+          <View style={s.aiBadge}>
+            <Text style={s.aiBadgeText}>🤖 AI</Text>
           </View>
           {source && (
-            <View style={s.sourcePill}>
-              <Text style={s.sourcePillText}>{source}</Text>
+            <View style={s.sourceBadge}>
+              <Text style={s.sourceBadgeText}>{source}</Text>
             </View>
           )}
+          <View style={s.categoryBadge}>
+            <Text style={s.categoryBadgeText}>{place.category}</Text>
+          </View>
         </View>
 
         <Text style={s.name}>{displayName}</Text>
         <Text style={s.sub}>
-          {subName} · {place.city}
+          {subName}
+          <Text style={{ color: theme.textDim }}>  ·  {place.city}</Text>
         </Text>
 
         <View style={s.metaRow}>
           {place.travelMinutesFromWuxi !== undefined && (
-            <Text style={s.metaPill}>
-              🚗 {place.travelMinutesFromWuxi}{lang === 'ko' ? '분' : '分钟'}
-            </Text>
+            <Meta icon="🚗" label={`${place.travelMinutesFromWuxi}${lang === 'ko' ? '분' : '分'}`} />
           )}
-          {place.estimatedCost && <Text style={s.metaPill}>💰 {place.estimatedCost}</Text>}
+          {place.estimatedCost && <Meta icon="💰" label={place.estimatedCost} />}
           {place.suggestedHours && (
-            <Text style={s.metaPill}>
-              ⏱ {place.suggestedHours[0]}~{place.suggestedHours[1]}
-              {lang === 'ko' ? '시간' : '小时'}
-            </Text>
+            <Meta icon="⏱" label={`${place.suggestedHours[0]}~${place.suggestedHours[1]}${lang === 'ko' ? 'h' : '小时'}`} />
           )}
-          <Text style={s.metaPill}>{place.category}</Text>
         </View>
 
         <Text style={s.why}>{place.why}</Text>
@@ -112,24 +138,24 @@ export function AIPlaceCard({ place, rank, onSave, saved }: Props) {
         )}
 
         <View style={s.actionRow}>
-          <TouchableOpacity style={s.action} onPress={() => openAmap(place)}>
-            <Text style={s.actionText}>🧭 {lang === 'ko' ? '길찾기' : '导航'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.action} onPress={() => shareAI(place, lang === 'zh')}>
-            <Text style={s.actionText}>↗ {lang === 'ko' ? '공유' : '分享'}</Text>
-          </TouchableOpacity>
+          <ActionBtn label={`🧭 ${lang === 'ko' ? '길찾기' : '导航'}`} onPress={() => openAmap(place)} />
+          <ActionBtn label={`↗ ${lang === 'ko' ? '공유' : '分享'}`} onPress={() => shareAI(place, lang === 'zh')} />
           {place.sourceUrl && (
-            <TouchableOpacity style={s.action} onPress={() => Linking.openURL(place.sourceUrl!).catch(() => {})}>
-              <Text style={s.actionText}>🔗 {source ?? (lang === 'ko' ? '출처' : '来源')}</Text>
-            </TouchableOpacity>
+            <ActionBtn
+              label={`🔗 ${source ?? (lang === 'ko' ? '출처' : '来源')}`}
+              onPress={() => Linking.openURL(place.sourceUrl!).catch(() => {})}
+            />
           )}
           {onSave && (
-            <TouchableOpacity style={[s.action, saved && s.actionOn]} onPress={onSave} disabled={saved}>
-              <Text style={[s.actionText, saved && { color: '#fff' }]}>
-                {saved ? '✓ ' : '🔖 '}
-                {lang === 'ko' ? (saved ? '저장됨' : '발견에 저장') : (saved ? '已保存' : '保存到发现')}
-              </Text>
-            </TouchableOpacity>
+            <ActionBtn
+              label={saved
+                ? (lang === 'ko' ? '✓ 저장됨' : '✓ 已保存')
+                : (lang === 'ko' ? '🔖 발견에 저장' : '🔖 保存')}
+              onPress={onSave}
+              on={saved}
+              disabled={saved}
+              good
+            />
           )}
         </View>
       </View>
@@ -137,75 +163,165 @@ export function AIPlaceCard({ place, rank, onSave, saved }: Props) {
   );
 }
 
+function Meta({ icon, label }: { icon: string; label: string }) {
+  return (
+    <View style={s.metaPill}>
+      <Text style={s.metaIcon}>{icon}</Text>
+      <Text style={s.metaText}>{label}</Text>
+    </View>
+  );
+}
+
+function ActionBtn({
+  label,
+  onPress,
+  on,
+  good,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  on?: boolean;
+  good?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[s.action, on && (good ? s.actionOnGood : s.actionOn)]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.75}
+    >
+      <Text style={[s.actionText, on && { color: '#fff' }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function categoryEmoji(category?: string): string {
+  switch (category) {
+    case 'nature':
+    case 'park':
+      return '🌳';
+    case 'culture':
+    case 'museum':
+    case 'temple':
+      return '🏯';
+    case 'food':
+      return '🍜';
+    case 'shopping':
+      return '🛍';
+    case 'date':
+      return '💕';
+    case 'ancient-town':
+      return '🏘';
+    case 'theme-park':
+      return '🎢';
+    case 'water-town':
+      return '🛶';
+    default:
+      return '✨';
+  }
+}
+
 const s = StyleSheet.create({
   card: {
     backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 16,
+    borderColor: theme.borderSoft,
+    borderRadius: radius.lg,
     overflow: 'hidden',
     ...shadow.sm,
   },
+  heroWrap: { position: 'relative' },
   hero: {
     width: '100%',
     height: 180,
     backgroundColor: theme.cardSoft,
   },
+  heroPlaceholder: {
+    width: '100%',
+    height: 130,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  placeholderEmoji: { fontSize: 56, opacity: 0.55 },
+  heroRank: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    ...shadow.sm,
+  },
+  heroRankText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+
   body: { padding: 16, gap: 8 },
-  headerRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
-  rankPill: {
-    backgroundColor: theme.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  rankText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
-  aiPill: {
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 2 },
+  aiBadge: {
     backgroundColor: theme.lavender,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 999,
   },
-  aiPillText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
-  sourcePill: {
-    backgroundColor: theme.good,
-    paddingHorizontal: 10,
+  aiBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  sourceBadge: {
+    backgroundColor: theme.goodSoft,
+    paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 999,
   },
-  sourcePillText: { color: theme.goodInk, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
-  name: { fontSize: 16, fontWeight: '700', color: theme.text },
-  sub: { fontSize: 13, color: theme.textDim },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-  metaPill: {
+  sourceBadgeText: { color: theme.goodInk, fontSize: 10, fontWeight: '800' },
+  categoryBadge: {
     backgroundColor: theme.cardSoft,
     borderWidth: 1,
-    borderColor: theme.border,
-    paddingHorizontal: 8,
+    borderColor: theme.borderSoft,
+    paddingHorizontal: 9,
     paddingVertical: 3,
-    borderRadius: 8,
-    fontSize: 10,
-    color: theme.textDim,
-    fontWeight: '500',
-    overflow: 'hidden',
+    borderRadius: 999,
   },
+  categoryBadgeText: { color: theme.textDim, fontSize: 10, fontWeight: '700' },
+
+  name: { fontSize: 18, fontWeight: '800', color: theme.text, letterSpacing: -0.3 },
+  sub: { fontSize: 13, color: theme.text, fontWeight: '500' },
+
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.cardSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.borderSoft,
+  },
+  metaIcon: { fontSize: 11 },
+  metaText: { fontSize: 11, color: theme.text, fontWeight: '600' },
+
   why: { fontSize: 13, color: theme.text, lineHeight: 19, marginTop: 4 },
   tipBox: {
     backgroundColor: '#fff8ea',
-    borderRadius: 8,
-    padding: 8,
-    paddingHorizontal: 10,
-  },
-  tipText: { fontSize: 12, color: theme.warnInk, lineHeight: 17 },
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  action: {
-    paddingVertical: 7,
+    borderRadius: radius.md,
+    padding: 10,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.warn,
+  },
+  tipText: { fontSize: 12, color: theme.warnInk, lineHeight: 17, fontWeight: '500' },
+
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  action: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: theme.borderSoft,
     backgroundColor: theme.card,
   },
-  actionOn: { backgroundColor: theme.good, borderColor: theme.good },
-  actionText: { fontSize: 11, color: theme.text, fontWeight: '500' },
+  actionOn: { backgroundColor: theme.accentDeep, borderColor: theme.accentDeep },
+  actionOnGood: { backgroundColor: theme.goodDeep, borderColor: theme.goodDeep },
+  actionText: { fontSize: 11, color: theme.text, fontWeight: '600' },
 });
