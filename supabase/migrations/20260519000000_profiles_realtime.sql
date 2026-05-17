@@ -22,15 +22,22 @@ drop policy if exists "own profile update" on profiles;
 create policy "own profile update" on profiles for update using (auth.uid() = user_id);
 
 -- 첫 로그인 시 자동으로 프로필 생성 (이메일 prefix를 닉네임으로)
-create or replace function ensure_profile()
+-- search_path/스키마 prefix 안 주면 auth 트리거 컨텍스트에서 public.profiles 못 찾고
+-- "Database error saving new user" 로 회원가입 자체가 실패함
+create or replace function public.ensure_profile()
 returns trigger
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
-  insert into profiles (user_id, display_name)
-  values (new.id, split_part(new.email, '@', 1))
-  on conflict (user_id) do nothing;
+  begin
+    insert into public.profiles (user_id, display_name)
+    values (new.id, coalesce(nullif(split_part(new.email, '@', 1), ''), 'member'))
+    on conflict (user_id) do nothing;
+  exception when others then
+    raise log 'ensure_profile failed for %: %', new.id, sqlerrm;
+  end;
   return new;
 end;
 $$;
@@ -38,7 +45,7 @@ $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row execute function ensure_profile();
+  for each row execute function public.ensure_profile();
 
 -- Realtime 활성화: 공유 테이블들 실시간 구독 가능하도록 publication에 추가
 -- (이미 추가돼 있으면 에러나니까 안전하게 처리)
