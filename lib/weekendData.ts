@@ -196,3 +196,26 @@ export async function loadLiveSnapshot(): Promise<WeekendData | null> {
     notes: data.notes,
   };
 }
+
+// localStorage 캐시 — 새로고침해도 옛 데이터 즉시 보여주기.
+const CACHE_KEY = 'weekendData_v1';
+
+export function loadCache(): WeekendData | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as WeekendData;
+  } catch {
+    return null;
+  }
+}
+
+export function saveCache(data: WeekendData): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // localStorage 가득 차거나 차단된 경우 무시
+  }
+}

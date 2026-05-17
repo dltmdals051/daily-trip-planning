@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from './supabase';
 import type { Place, WeeklySnapshot, Visit, WishlistRow, VoteRow, Discovery, Profile } from './types';
-import { fetchWeekendData, isFresh, isCurrentRange, loadLiveSnapshot, type WeekendData } from './weekendData';
+import { fetchWeekendData, isFresh, isCurrentRange, loadLiveSnapshot, loadCache, saveCache, type WeekendData } from './weekendData';
 
 type State = {
   places: Place[];
@@ -58,23 +58,28 @@ export const useStore = create<State>((set, get) => ({
   me: null,
   loading: false,
   error: null,
-  weekendData: null,
+  // 부팅 시 localStorage 에서 동기적으로 옛 데이터 hydrate → 즉시 표시
+  weekendData: loadCache(),
   weekendLoading: false,
 
   refreshWeekend: async (force = false) => {
     if (!force && isFresh(get().weekendData)) return;
-    set({ weekendLoading: true });
+    // 캐시가 있으면 로딩 스피너 안 띄움 (옛 데이터 유지하며 백그라운드 새로고침)
+    const hasCache = !!get().weekendData;
+    if (!hasCache) set({ weekendLoading: true });
     try {
       // 1순위: DB 의 cron 스냅샷 (즉시 — 매일 새벽 갱신).
       if (!force) {
         const fromDb = await loadLiveSnapshot();
         if (isCurrentRange(fromDb)) {
+          saveCache(fromDb!);
           set({ weekendData: fromDb, weekendLoading: false });
           return;
         }
       }
       // 2순위: 클라이언트에서 Gemini 직접 호출 (cron 이 아직 안 돌았거나 force).
       const data = await fetchWeekendData();
+      saveCache(data);
       set({ weekendData: data, weekendLoading: false });
     } catch (e: any) {
       set({ weekendLoading: false });

@@ -16,8 +16,11 @@ export default function WeekendScreen() {
   const { discoveries, addDiscovery, weekendData, weekendLoading, refreshWeekend, refresh } = useStore();
 
   useEffect(() => {
-    refresh();
+    // 1순위: weekend 데이터 (캐시는 이미 동기 로드됨, 백그라운드 새로고침)
     refreshWeekend();
+    // 2순위: 다른 테이블 (장소/방문/하트/투표/프로필) — 첫 페인트 뒤로 미룸
+    const id = setTimeout(() => refresh(), 0);
+    return () => clearTimeout(id);
   }, [refresh, refreshWeekend]);
 
   const start = weekendData ? new Date(weekendData.startDate + 'T00:00:00') : null;

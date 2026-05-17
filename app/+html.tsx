@@ -6,6 +6,7 @@ import { ScrollViewStyleReset } from 'expo-router/html';
  */
 export default function Root({ children }: { children: React.ReactNode }) {
   const base = process.env.EXPO_BASE_URL ?? '';
+  const supabaseOrigin = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
   return (
     <html lang="ko">
       <head>
@@ -18,6 +19,14 @@ export default function Root({ children }: { children: React.ReactNode }) {
 
         <title>우시 주말 플래너</title>
         <meta name="description" content="우시 거주 한중 커플을 위한 주말 코스 추천" />
+
+        {/* TLS/DNS 미리 warm-up — 첫 fetch 가 즉시 출발 */}
+        {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />}
+        <link rel="preconnect" href="https://upload.wikimedia.org" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://api.open-meteo.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://commons.wikimedia.org" />
+        <link rel="dns-prefetch" href="https://zh.wikipedia.org" />
+        <link rel="dns-prefetch" href="https://generativelanguage.googleapis.com" />
 
         <link rel="manifest" href={`${base}/manifest.webmanifest`} />
         <meta name="theme-color" content="#ff9a8b" />
