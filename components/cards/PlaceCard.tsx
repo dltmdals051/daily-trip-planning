@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import type { Place } from '@/lib/types';
 import { theme } from '@/lib/theme';
 import { useLang, t, placeName } from '@/lib/i18n';
+import { openDirections, sharePlace } from '@/lib/share';
 
 type Props = {
   place: Place;
@@ -116,6 +117,12 @@ export function PlaceCard({
             <Text style={s.actionText}>+ {t('markVisited', lang)}</Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={s.action} onPress={() => openDirections(place)}>
+          <Text style={s.actionText}>🧭 {lang === 'ko' ? '길찾기' : '导航'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.action} onPress={() => sharePlace(place, lang === 'zh')}>
+          <Text style={s.actionText}>↗ {lang === 'ko' ? '공유' : '分享'}</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

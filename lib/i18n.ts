@@ -63,6 +63,12 @@ const dict = {
   cost: { ko: '비용', zh: '费用' },
   date: { ko: '데이트', zh: '约会' },
   notMember: { ko: '아직 멤버로 등록되지 않은 이메일입니다.', zh: '此邮箱尚未被授权。' },
+  consensusTitle: { ko: '둘 다 좋아한 곳', zh: '两人都喜欢' },
+  bothVotedTitle: { ko: '이번 주말 합의', zh: '本周末共识' },
+  noConsensus: { ko: '아직 둘 다 표시한 곳이 없어요', zh: '还没有共同标记的地方' },
+  noConsensusVote: { ko: '둘 다 투표해야 합의됨', zh: '需要两人都投票' },
+  navigate: { ko: '길찾기', zh: '导航' },
+  share: { ko: '공유', zh: '分享' },
 } as const;
 
 export type DictKey = keyof typeof dict;

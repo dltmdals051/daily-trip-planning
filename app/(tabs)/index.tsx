@@ -19,6 +19,33 @@ export default function WeekendScreen() {
 
   const placesById = Object.fromEntries(places.map(p => [p.id, p]));
 
+  // 합의 계산
+  const wishConsensus = (() => {
+    const byPlace = new Map<string, Set<string>>();
+    for (const w of wishlist) {
+      if (!byPlace.has(w.place_id)) byPlace.set(w.place_id, new Set());
+      byPlace.get(w.place_id)!.add(w.user_id);
+    }
+    return Array.from(byPlace.entries())
+      .filter(([, users]) => users.size >= 2)
+      .map(([id]) => placesById[id])
+      .filter(Boolean);
+  })();
+
+  const voteConsensus = weekly
+    ? (() => {
+        const byPlace = new Map<string, Set<string>>();
+        for (const v of votes.filter(v => v.weekend_saturday === weekly.weekend_saturday)) {
+          if (!byPlace.has(v.place_id)) byPlace.set(v.place_id, new Set());
+          byPlace.get(v.place_id)!.add(v.user_id);
+        }
+        return Array.from(byPlace.entries())
+          .filter(([, users]) => users.size >= 2)
+          .map(([id]) => placesById[id])
+          .filter(Boolean);
+      })()
+    : [];
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['left', 'right']}>
       <ScrollView
@@ -33,6 +60,39 @@ export default function WeekendScreen() {
               : t('noData', lang)}
           </Text>
         </View>
+
+        {(voteConsensus.length > 0 || wishConsensus.length > 0) && (
+          <View style={s.consensusBox}>
+            {voteConsensus.length > 0 && (
+              <>
+                <Text style={s.consensusTitle}>🗳 {t('bothVotedTitle', lang)}</Text>
+                <View style={s.consensusRow}>
+                  {voteConsensus.map(p => (
+                    <View key={p.id} style={[s.consensusPill, { backgroundColor: theme.accent }]}>
+                      <Text style={s.consensusPillText}>{lang === 'ko' ? p.nameKo : p.nameZh}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+            {wishConsensus.length > 0 && (
+              <>
+                <Text style={[s.consensusTitle, { marginTop: voteConsensus.length > 0 ? 12 : 0 }]}>
+                  ♥♥ {t('consensusTitle', lang)}
+                </Text>
+                <View style={s.consensusRow}>
+                  {wishConsensus.map(p => (
+                    <View key={p.id} style={[s.consensusPill, { backgroundColor: theme.good }]}>
+                      <Text style={[s.consensusPillText, { color: '#000' }]}>
+                        {lang === 'ko' ? p.nameKo : p.nameZh}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        )}
 
         <Section title={t('weatherTitle', lang)}>
           {weekly && weekly.weather.length > 0 ? (
@@ -141,4 +201,20 @@ const s = StyleSheet.create({
     padding: 16,
   },
   emptyText: { color: theme.textDim, fontSize: 13, textAlign: 'center' },
+  consensusBox: {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.accent,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+  },
+  consensusTitle: { fontSize: 13, fontWeight: '700', color: theme.accentSoft, marginBottom: 8 },
+  consensusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  consensusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  consensusPillText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 });

@@ -5,9 +5,12 @@ Expo React Native 앱. 우시 거주 한중 커플 둘이 매 주말 갈 곳을 
 ## 핵심 기능
 
 - **이번 주말 탭** — 토/일 날씨 + Claude로 검색한 이번 주 행사 + 추천 코스 (8개) + 둘이 투표
+  - 상단에 **합의 박스**: 둘 다 ♥한 곳 / 둘 다 투표한 곳 즉시 표시
 - **장소 탭** — 큐레이션된 우시·강소성 명소 30개+. 도시별 필터, '가고싶어' 하트, '다녀옴' 등록
 - **방문 기록 탭** — 둘이 같이 본 공유 방문 기록 (평점·메모)
 - **설정 탭** — 한국어 / 中文 토글, 로그아웃
+- 모든 장소 카드에 **🧭 길찾기 (高德 앱)** + **↗ 위챗 공유** 버튼
+- 로그인은 **이메일 → 6자리 OTP 코드** 입력 (deep-link 불필요)
 
 ## 기술 스택
 
@@ -26,8 +29,8 @@ Expo React Native 앱. 우시 거주 한중 커플 둘이 매 주말 갈 곳을 
 
 1. https://supabase.com 에서 새 프로젝트 (Hong Kong / Singapore 리전이 중국에서 빠름)
 2. SQL Editor에서 `supabase/migrations/20260517000000_init.sql` 실행
-3. Authentication → Providers → Email 켜고, Magic Link 활성화
-4. Authentication → URL Configuration → Redirect URLs에 `wuxiweekend://login-callback` 추가
+3. Authentication → Providers → Email 켜기 (Magic Link + Email OTP 둘 다 자동 활성화)
+4. Authentication → Email Templates → "Magic Link" 본문에 `{{ .Token }}` (6자리 코드) 가 들어있는지 확인. 보통 기본 템플릿에 포함됨
 5. **둘만 가입 허용:**
    SQL Editor에서 본인+여친 이메일 추가:
    ```sql
@@ -101,6 +104,7 @@ lib/
   i18n.ts                         한/중 사전
   theme.ts                        다크 테마
   recommend.ts                    추천 점수 로직 (스크립트 공용)
+  share.ts                        高德 길찾기 + 시스템 공유 시트
 scripts/
   seed-places.ts                  places.json → Supabase
   generate-weekly.ts              매주 날씨/행사/추천 → Supabase

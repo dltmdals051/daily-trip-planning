@@ -7,9 +7,16 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0f1216",
+      "resizeMode": "contain"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.wuxiweekend.app"
+      "bundleIdentifier": "com.wuxiweekend.app",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["iosamap", "baidumap", "weixin"]
+      }
     },
     "android": {
       "package": "com.wuxiweekend.app",
