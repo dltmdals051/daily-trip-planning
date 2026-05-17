@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI } from '@google/genai';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { EventItem } from '../../lib/types';
@@ -15,9 +15,8 @@ type EventSources = {
 };
 
 const SYSTEM = `너는 중국 우시(无锡)에 사는 한국인 + 산동 출신 여자친구 커플을 위한
-주말 행사 큐레이터다. 주어진 검색 전략 화이트리스트만 사용해서 web_search 도구로 조사하고,
-검증된 실제 행사만 JSON으로 보고한다. 작년 정보, 추측, 광고성 후기는 제외.
-구체적 날짜 + 장소 + 출처 URL이 모두 확인된 것만 포함한다.
+주말 행사 큐레이터다. Google Search로 조사하고 검증된 실제 행사만 JSON으로 보고한다.
+작년 정보, 추측, 광고성 후기는 제외. 구체적 날짜 + 장소 + 출처 URL 모두 확인된 것만.
 
 우선순위:
 1. 大麦网/票务 사이트의 콘서트·뮤지컬·전시
@@ -37,14 +36,14 @@ function buildUserPrompt(saturday: string, sunday: string, sources: EventSources
 
   return `이번 주말(${saturday} 토 ~ ${sunday} 일) 우시 + 강소성·상하이·항저우 행사를 찾아줘.
 
-## 검색 전략 (이 쿼리들을 순서대로 시도, 도시별로 1~2개씩)
+## 검색 전략 (이 쿼리들을 도시별로 1~2개씩 시도)
 
 ${strategiesText}
 
-## 선호 도메인 (검색 결과 중 우선 인용)
+## 선호 도메인 (검색 결과 중 우선)
 ${sources.preferDomains.map(d => '- ' + d).join('\n')}
 
-## 출력 (raw JSON only, 코드펜스 금지)
+## 출력 (raw JSON only, 코드펜스/설명 금지)
 
 {
   "events": [
@@ -56,21 +55,21 @@ ${sources.preferDomains.map(d => '- ' + d).join('\n')}
       "summary": "한국어 1~2줄"
     }
   ],
-  "notes": "검색 신뢰도 / 빠뜨린 카테고리 / 다음 주 보완 필요 등 메모"
+  "notes": "검색 신뢰도 / 빠뜨린 카테고리 메모"
 }
 
 규칙:
 - 최대 10개. 적게라도 검증된 것만.
 - 같은 행사는 한 번만.
 - city 필드는 위 enum 값에서만.
-- url은 1차 출처 (大麦, 공식 사이트 등). 클릭하면 직접 보이는 페이지.`;
+- url은 1차 출처. 클릭하면 직접 보이는 페이지.`;
 }
 
 export async function fetchWeekendEvents(saturday: string, sunday: string): Promise<{ events: EventItem[]; notes?: string }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.warn('[events] ANTHROPIC_API_KEY 없음 → 행사 검색 스킵');
-    return { events: [], notes: 'ANTHROPIC_API_KEY missing' };
+    console.warn('[events] GEMINI_API_KEY 없음 → 행사 검색 스킵');
+    return { events: [], notes: 'GEMINI_API_KEY missing' };
   }
 
   let sources: EventSources;
@@ -78,31 +77,30 @@ export async function fetchWeekendEvents(saturday: string, sunday: string): Prom
     const sourcesPath = path.resolve(__dirname, '../../data/event_sources.json');
     sources = JSON.parse(await readFile(sourcesPath, 'utf8'));
   } catch (e) {
-    console.warn('[events] event_sources.json 못 읽음, 폴백 모드', e);
+    console.warn('[events] event_sources.json 못 읽음', e);
     sources = { strategies: [], preferDomains: [], notes: '' };
   }
 
-  const client = new Anthropic({ apiKey });
-  const msg = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 6000,
-    system: SYSTEM,
-    tools: [
-      {
-        type: 'web_search_20250305',
-        name: 'web_search',
-        max_uses: 12,
-      } as any,
-    ],
-    messages: [{ role: 'user', content: buildUserPrompt(saturday, sunday, sources) }],
-  });
+  const client = new GoogleGenAI({ apiKey });
 
-  const text = msg.content
-    .filter(b => b.type === 'text')
-    .map(b => (b as any).text)
-    .join('\n')
-    .trim();
+  let text = '';
+  try {
+    const response = await client.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: buildUserPrompt(saturday, sunday, sources),
+      config: {
+        systemInstruction: SYSTEM,
+        tools: [{ googleSearch: {} }],
+        temperature: 0.3,
+      },
+    });
+    text = (response.text ?? '').trim();
+  } catch (e) {
+    console.error('[events] Gemini 호출 실패', e);
+    return { events: [], notes: 'gemini call failed' };
+  }
 
+  // Google Search grounding 사용 시 마크다운 ```json ... ``` 으로 감싸오는 경우가 잦음
   const jsonStart = text.indexOf('{');
   const jsonEnd = text.lastIndexOf('}');
   if (jsonStart < 0 || jsonEnd < 0) {

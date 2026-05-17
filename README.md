@@ -4,7 +4,7 @@ Expo React Native 앱. 우시 거주 한중 커플 둘이 매 주말 갈 곳을 
 
 ## 핵심 기능
 
-- **이번 주말 탭** — 토/일 날씨 + Claude로 검색한 이번 주 행사 + 추천 코스 (8개) + 둘이 투표
+- **이번 주말 탭** — 토/일 날씨 + Gemini로 검색한 이번 주 행사 + 추천 코스 (8개) + 둘이 투표
   - 상단에 **합의 박스**: 둘 다 ♥한 곳 / 둘 다 투표한 곳 즉시 표시
 - **장소 탭** — 큐레이션된 우시·강소성 명소 30개+. 도시별 필터, '가고싶어' 하트, '다녀옴' 등록
 - **방문 기록 탭** — 둘이 같이 본 공유 방문 기록 (평점·메모)
@@ -24,7 +24,7 @@ Expo React Native 앱. 우시 거주 한중 커플 둘이 매 주말 갈 곳을 
 | 상태 | Zustand |
 | 데이터 갱신 | GitHub Actions (매주 금요일 18:00 UTC) |
 | 날씨 | Open-Meteo (무료, 키 불필요) |
-| 행사 검색 | Claude Sonnet 4.6 + `web_search` tool |
+| 행사 검색 | Gemini 2.5 Flash + Google Search grounding (완전 무료) |
 
 ## 셋업
 
@@ -51,7 +51,7 @@ Expo React Native 앱. 우시 거주 한중 커플 둘이 매 주말 갈 곳을 
 | `SUPABASE_URL` | Supabase Project Settings → API → Project URL | 백엔드 (cron) + PWA 빌드 |
 | `SUPABASE_ANON_KEY` | Supabase Project Settings → API → anon (공개 가능) | PWA 빌드 (클라이언트) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Project Settings → API → service_role (절대 공개 금지) | 백엔드 (cron, seed) |
-| `ANTHROPIC_API_KEY` | https://console.anthropic.com | 행사 검색 cron |
+| `GEMINI_API_KEY` | https://aistudio.google.com/apikey (무료) | 행사 검색 cron |
 
 ### 3. 장소 시드 (최초 1회)
 
@@ -128,7 +128,7 @@ scripts/
   generate-weekly.ts              매주 날씨/행사/추천 → Supabase
   lib/
     weather.ts                    Open-Meteo
-    events.ts                     Claude + web_search
+    events.ts                     Gemini + Google Search grounding
 supabase/migrations/
   20260517000000_init.sql         초기 스키마 + RLS
 data/
