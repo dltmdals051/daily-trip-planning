@@ -7,20 +7,27 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "splash": {
+      "image": "./assets/splash.png",
       "backgroundColor": "#fdf6f0",
       "resizeMode": "contain"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wuxiweekend.app",
+      "buildNumber": "1",
+      "icon": "./assets/icon.png",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["iosamap", "baidumap", "weixin"]
+        "LSApplicationQueriesSchemes": ["iosamap", "baidumap", "weixin"],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.wuxiweekend.app",
+      "versionCode": 1,
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#fdf6f0"
       }
     },
@@ -37,6 +44,9 @@
       "supabaseAnonKey": null,
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": ""
       }
     }
   }

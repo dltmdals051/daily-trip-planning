@@ -10,6 +10,8 @@
     "generate": "tsx scripts/generate-weekly.ts",
     "generate-live": "tsx scripts/generate-live.ts",
     "seed": "tsx scripts/seed-places.ts",
+    "ios:build": "eas build --platform ios --profile production",
+    "ios:submit": "eas submit --platform ios --latest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -38,6 +40,7 @@
     "@babel/core": "^7.24.7",
     "@types/node": "^20.14.10",
     "@types/react": "~18.2.79",
+    "sharp": "^0.34.5",
     "tsx": "^4.16.2",
     "typescript": "~5.3.3"
   },
