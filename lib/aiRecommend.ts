@@ -70,7 +70,12 @@ function buildPrompt(f: CustomFilters, recentNames: string[]): string {
 - city 필드는 위 enum.
 - travelMinutesFromWuxi 는 실제 기차/차 시간 기준 추정값.
 - sourceUrl 비울 거면 빈 문자열 말고 키 자체 생략.
-- imageUrl 도 확실하지 않으면 생략 (없는 게 깨진 거 보여주는 것보다 나음).`;
+- **imageUrl 은 가능하면 무조건 채워라.** 검색에서 본 풍경 사진을 hot-link 가능한 형태로:
+  - upload.wikimedia.org/wikipedia/commons/... (최우선, 거의 모든 유명 명소 있음)
+  - bkimg.cdn.bcebos.com/pic/... (百度百科)
+  - img.lvmama.com / dimg04.c-ctrip.com / 携程·携程 CDN
+  - 公式 관광청 사이트의 .jpg/.png
+  - 확실히 못 찾으면 imageUrl 자체를 생략 (앱이 위키피디아로 자동 보충함).`;
 }
 
 export async function aiRecommend(
@@ -121,20 +126,62 @@ export async function aiRecommend(
 }
 
 async function enrichWithWikiImage(p: AIPlace): Promise<AIPlace> {
+  // Gemini 가 채워준 imageUrl 이 있으면 그대로 사용 (실패는 카드 onError 가 잡음).
   if (p.imageUrl) return p;
-  const img = await fetchWikiThumb(p.nameZh);
-  if (img) return { ...p, imageUrl: img };
-  return p;
+  // 1차: zh 위키 검색으로 정확한 페이지 찾고 → 그 페이지 대표 이미지
+  let img = await fetchWikiImage(p.nameZh);
+  // 2차: Wikimedia Commons 이미지 검색 (장소명 + 도시)
+  if (!img) img = await fetchCommonsImage(`${p.nameZh} ${p.city}`);
+  // 3차: Commons 에서 장소명만
+  if (!img) img = await fetchCommonsImage(p.nameZh);
+  return img ? { ...p, imageUrl: img } : p;
 }
 
-async function fetchWikiThumb(title: string): Promise<string | undefined> {
+async function fetchWikiImage(title: string): Promise<string | undefined> {
   if (!title) return undefined;
+  // 1) opensearch 로 가장 가까운 페이지 제목 찾기
+  let pageTitle: string | null = null;
   try {
-    const url = `https://zh.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+    const url = `https://zh.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(title)}&limit=1&namespace=0&format=json&origin=*`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const arr = (await res.json()) as [string, string[], string[], string[]];
+      if (arr?.[1]?.[0]) pageTitle = arr[1][0];
+    }
+  } catch {}
+  if (!pageTitle) pageTitle = title;
+
+  // 2) summary 엔드포인트로 대표 이미지
+  try {
+    const url = `https://zh.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`;
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!res.ok) return undefined;
     const json = (await res.json()) as { thumbnail?: { source?: string }; originalimage?: { source?: string } };
     return json.originalimage?.source || json.thumbnail?.source;
+  } catch {
+    return undefined;
+  }
+}
+
+async function fetchCommonsImage(query: string): Promise<string | undefined> {
+  if (!query) return undefined;
+  try {
+    const url =
+      `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*` +
+      `&generator=search&gsrnamespace=6&gsrlimit=1&gsrsearch=${encodeURIComponent(query)}` +
+      `&prop=imageinfo&iiprop=url|size&iiurlwidth=800`;
+    const res = await fetch(url);
+    if (!res.ok) return undefined;
+    const json = (await res.json()) as {
+      query?: { pages?: Record<string, { imageinfo?: { thumburl?: string; url?: string }[] }> };
+    };
+    const pages = json.query?.pages;
+    if (!pages) return undefined;
+    for (const k of Object.keys(pages)) {
+      const ii = pages[k]?.imageinfo?.[0];
+      if (ii) return ii.thumburl || ii.url;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
