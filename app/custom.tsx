@@ -6,9 +6,9 @@ import { useStore } from '@/lib/store';
 import { useLang, t, type DictKey } from '@/lib/i18n';
 import { theme, shadow } from '@/lib/theme';
 import { AIPlaceCard } from '@/components/cards/AIPlaceCard';
-import { supabase } from '@/lib/supabase';
+import { aiRecommend } from '@/lib/aiRecommend';
 import { defaultFilters } from '@/lib/types';
-import type { CustomFilters, Category, AIPlace, AIRecommendResponse } from '@/lib/types';
+import type { CustomFilters, Category, AIPlace } from '@/lib/types';
 
 const CATEGORIES: { value: Category; key: DictKey }[] = [
   { value: 'nature', key: 'catNature' },
@@ -37,7 +37,7 @@ const DATE_SCORE_OPTIONS = [0, 5, 7, 8, 9];
 
 export default function CustomScreen() {
   const lang = useLang(s => s.lang);
-  const { discoveries, addDiscovery } = useStore();
+  const { discoveries, addDiscovery, places, visits } = useStore();
 
   const [filters, setFilters] = useState<CustomFilters>(defaultFilters());
   const [results, setResults] = useState<AIPlace[] | null>(null);
@@ -64,11 +64,8 @@ export default function CustomScreen() {
     setNotes(null);
     setSavedKeys(new Set());
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke<AIRecommendResponse>('ai-recommend', {
-        body: filters,
-      });
-      if (fnErr) throw fnErr;
-      if (!data) throw new Error('빈 응답');
+      const recentNames = filters.excludeRecent ? recentVisitNames(visits, places) : [];
+      const data = await aiRecommend(filters, recentNames);
       if (data.error) throw new Error(data.error);
       setResults(data.places);
       setNotes(data.notes ?? null);
@@ -284,6 +281,21 @@ export default function CustomScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function recentVisitNames(
+  visits: { place_id: string; visited_on: string }[],
+  places: { id: string; nameKo: string; nameZh: string }[],
+): string[] {
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const sinceStr = since.toISOString().slice(0, 10);
+  const recentIds = new Set(visits.filter(v => v.visited_on >= sinceStr).map(v => v.place_id));
+  const names: string[] = [];
+  for (const p of places) {
+    if (recentIds.has(p.id)) names.push(p.nameKo, p.nameZh);
+  }
+  return names;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
